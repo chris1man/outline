@@ -24,11 +24,6 @@ export default async function bootstrapAdmin(): Promise<void> {
     throw new Error("INITIAL_ADMIN_PASSWORD must be at least 12 characters");
   }
 
-  const existingUser = await User.findOne();
-  if (existingUser) {
-    return;
-  }
-
   let team = await Team.findOne();
   if (!team) {
     team = await Team.create({
@@ -37,8 +32,22 @@ export default async function bootstrapAdmin(): Promise<void> {
     });
   }
 
+  const email = INITIAL_ADMIN_EMAIL.toLowerCase();
+  const existingUser = await User.findOne({ where: { email } });
+  if (existingUser) {
+    if (existingUser.passwordDigest) {
+      return;
+    }
+
+    existingUser.passwordDigest = await hashPassword(INITIAL_ADMIN_PASSWORD);
+    existingUser.role = UserRole.Admin;
+    await existingUser.save();
+    Logger.info("authentication", "Set password for initial local administrator");
+    return;
+  }
+
   await User.create({
-    email: INITIAL_ADMIN_EMAIL.toLowerCase(),
+    email,
     name: "Administrator",
     role: UserRole.Admin,
     teamId: team.id,
