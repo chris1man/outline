@@ -4,6 +4,8 @@ import { buildTeam, buildUser } from "@server/test/factories";
 import userInviter from "./userInviter";
 import { withAPIContext } from "@server/test/support";
 import { TeamDomain } from "@server/models";
+import InviteEmail from "@server/emails/templates/InviteEmail";
+import { verifyPassword } from "@server/utils/password";
 
 describe("userInviter", () => {
   it("should return sent invites", async () => {
@@ -36,6 +38,28 @@ describe("userInviter", () => {
       })
     );
     expect(response.sent.length).toEqual(0);
+  });
+
+  it("should create a local password user without sending an email", async () => {
+    const user = await buildUser();
+    const schedule = vi.spyOn(InviteEmail.prototype, "schedule");
+    const response = await withAPIContext(user, (ctx) =>
+      userInviter(ctx, {
+        invites: [
+          {
+            role: UserRole.Member,
+            email: faker.internet.email(),
+            name: "Test",
+            password: "a-safe-password",
+          },
+        ],
+      })
+    );
+
+    expect(
+      await verifyPassword("a-safe-password", response.users[0].passwordDigest!)
+    ).toBe(true);
+    expect(schedule).not.toHaveBeenCalled();
   });
 
   it("should error on non allowed domains", async () => {

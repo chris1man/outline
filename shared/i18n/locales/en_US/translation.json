@@ -1906,5 +1906,7 @@
   "Add content": "Add content",
   "Tomorrow": "Tomorrow",
   "Group admin": "Group admin",
-  "Member": "Member"
+  "Member": "Member",
+  "Password": "Password",
+  "At least 12 characters": "At least 12 characters"
 }

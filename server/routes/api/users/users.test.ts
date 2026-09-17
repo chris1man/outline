@@ -749,6 +749,24 @@ describe("#users.invite", () => {
     expect(body.data.sent.length).toEqual(1);
   });
 
+  it("should only allow admins to set an invited user's password", async () => {
+    const user = await buildUser();
+    const res = await server.post("/api/users.invite", user, {
+      body: {
+        invites: [
+          {
+            email: "test@example.com",
+            name: "Test",
+            role: "member",
+            password: "a-safe-password",
+          },
+        ],
+      },
+    });
+
+    expect(res.status).toEqual(403);
+  });
+
   it("should now allow viewers to invite", async () => {
     const user = await buildViewer();
     const res = await server.post("/api/users.invite", user, {

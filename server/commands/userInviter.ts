@@ -8,11 +8,13 @@ import { UserFlag } from "@server/models/User";
 import type { APIContext } from "@server/types";
 import { DomainNotAllowedError } from "@server/errors";
 import { can } from "@server/policies";
+import { hashPassword } from "@server/utils/password";
 
 export type Invite = {
   name: string;
   email: string;
   role: UserRole;
+  password?: string;
 };
 
 type Props = {
@@ -84,7 +86,10 @@ export default async function userInviter(
               ? UserRole.Viewer
               : UserRole.Member,
         invitedById: user.id,
-        flags: suppressEmail
+        passwordDigest: invite.password
+          ? await hashPassword(invite.password)
+          : undefined,
+        flags: suppressEmail || invite.password
           ? undefined
           : {
               [UserFlag.InviteSent]: 1,
@@ -96,7 +101,7 @@ export default async function userInviter(
     );
     users.push(newUser);
 
-    if (!suppressEmail) {
+    if (!suppressEmail && !invite.password) {
       await new InviteEmail({
         to: invite.email,
         language: newUser.language,

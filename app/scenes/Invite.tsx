@@ -30,6 +30,7 @@ type Props = {
 type InviteRequest = {
   email: string;
   name: string;
+  password: string;
 };
 
 function Invite({ onSubmit }: Props) {
@@ -38,6 +39,7 @@ function Invite({ onSubmit }: Props) {
     {
       email: "",
       name: "",
+      password: "",
     },
   ]);
   const { users, collections } = useStores();
@@ -104,6 +106,7 @@ function Invite({ onSubmit }: Props) {
       newInvites.push({
         email: "",
         name: "",
+        password: "",
       });
       return newInvites;
     });
@@ -239,6 +242,22 @@ function Invite({ onSubmit }: Props) {
                   required={!!invite.email}
                   flex
                 />
+                {user.isAdmin && (
+                  <StyledInput
+                    type="password"
+                    name="password"
+                    label={t("Password")}
+                    labelHidden={index !== 0}
+                    onKeyDown={handleKeyDown}
+                    onChange={(ev) => handleChange(ev, index)}
+                    autoComplete="new-password"
+                    minLength={12}
+                    placeholder={t("At least 12 characters")}
+                    value={invite.password}
+                    required={!!invite.email}
+                    flex
+                  />
+                )}
               </Flex>
             ))}
           </ResizingHeightContainer>
