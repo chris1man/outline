@@ -20,12 +20,6 @@ services:
       FILE_STORAGE_LOCAL_ROOT_DIR: /var/lib/outline/data
       FILE_STORAGE_UPLOAD_MAX_SIZE: ${FILE_STORAGE_UPLOAD_MAX_SIZE:-262144000}
       ENABLE_UPDATES: ${ENABLE_UPDATES:-true}
-      SMTP_HOST: ${SMTP_HOST:-}
-      SMTP_PORT: ${SMTP_PORT:-587}
-      SMTP_USERNAME: ${SMTP_USERNAME:-}
-      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
-      SMTP_FROM_EMAIL: ${SMTP_FROM_EMAIL:-}
-      SMTP_SECURE: ${SMTP_SECURE:-false}
     depends_on:
       postgres:
         condition: service_healthy
