@@ -24,4 +24,7 @@ jobs:
           push: true
           tags: ghcr.io/chris1man/outline:email-password-auth
       - name: Redeploy Outline
-        run: curl --fail --show-error --silent --output /dev/null --write-out "Portainer webhook: HTTP %{http_code}\n" --request POST "${{ secrets.PORTAINER_WEBHOOK_URL }}"
+        run: >-
+          curl --fail --show-error --silent --output /dev/null
+          --write-out "Portainer webhook: HTTP %{http_code}\n"
+          --request POST "${{ secrets.PORTAINER_WEBHOOK_URL }}"
