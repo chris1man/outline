@@ -1,18 +1,12 @@
 ARG APP_PATH=/opt/outline
-FROM node:24.16.0 AS base
+ARG BASE_IMAGE=outlinewiki/outline-base
+FROM ${BASE_IMAGE} AS base
 
 ARG APP_PATH
 WORKDIR $APP_PATH
 
-COPY package.json yarn.lock .yarnrc.yml ./
-COPY patches ./patches
-
-RUN apt-get update && apt-get install -y cmake && rm -rf /var/lib/apt/lists/*
-RUN corepack enable
-RUN yarn install --immutable --network-timeout 1000000
-
 COPY . .
-RUN yarn build && yarn workspaces focus --production && yarn cache clean
+RUN yarn build
 
 # ---
 FROM node:24.16.0-slim AS runner
