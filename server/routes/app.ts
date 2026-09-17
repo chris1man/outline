@@ -95,7 +95,7 @@ export const renderApp = async (
     description = "A modern team knowledge base for your internal documentation, product specs, support answers, meeting notes, onboarding, &amp; more…",
     canonical = "",
     content = "",
-    shortcutIcon = `${env.CDN_URL || ""}/images/favicon-32.png`,
+    shortcutIcon = `${env.CDN_URL || ""}/images/maki-icon.svg`,
     allowIndexing = true,
   } = options;
 
@@ -144,9 +144,7 @@ export const renderApp = async (
     ${alternateTag}
     <link
       rel="shortcut icon"
-      type="image/png"
       href="${escape(shortcutIcon)}"
-      sizes="32x32"
     />
     `;
 

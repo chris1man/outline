@@ -11,17 +11,14 @@ import { Client, UserPreference } from "@shared/types";
 import { isPWA } from "@shared/utils/browser";
 import { parseDomain } from "@shared/utils/domains";
 import type { Config } from "~/stores/AuthStore";
-import { AvatarSize } from "~/components/Avatar";
 import ButtonLarge from "~/components/ButtonLarge";
 import ChangeLanguage from "~/components/ChangeLanguage";
 import Flex from "~/components/Flex";
 import Heading from "~/components/Heading";
-import OutlineIcon from "~/components/Icons/OutlineIcon";
 import Input from "~/components/Input";
 import LoadingIndicator from "~/components/LoadingIndicator";
 import { OneTimePasswordInput } from "~/components/OneTimePasswordInput";
 import PageTitle from "~/components/PageTitle";
-import TeamLogo from "~/components/TeamLogo";
 import Text from "~/components/Text";
 import env from "~/env";
 import useCurrentUser from "~/hooks/useCurrentUser";
@@ -342,11 +339,7 @@ function Login({ children, onBack }: Props) {
           title={config.name ? `${config.name} – ${t("Login")}` : t("Login")}
         />
         <Logo>
-          {config.logo && !isCreate ? (
-            <TeamLogo size={AvatarSize.XXLarge} src={config.logo} />
-          ) : (
-            <OutlineIcon size={AvatarSize.XXLarge} />
-          )}
+          <MakiLogo src="/images/maki.svg" alt="MAKI" />
         </Logo>
         {isCreate ? (
           <>
@@ -362,9 +355,7 @@ function Login({ children, onBack }: Props) {
         ) : (
           <>
             <StyledHeading as="h2" centered>
-              {t("Login to {{ authProviderName }}", {
-                authProviderName: config.name || env.APP_NAME,
-              })}
+              {t("Login to MAKI")}
             </StyledHeading>
             {children?.(config)}
           </>
@@ -436,7 +427,14 @@ const CheckEmailIcon = styled(EmailIcon)`
 `;
 
 const Logo = styled.div`
-  margin-bottom: -4px;
+  margin-bottom: 4px;
+`;
+
+const MakiLogo = styled.img`
+  display: block;
+  width: 48px;
+  height: 48px;
+  object-fit: contain;
 `;
 
 const Content = styled(Text)`

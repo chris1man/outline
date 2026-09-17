@@ -149,6 +149,14 @@ const Form = styled.form`
 const PasswordForm = styled(Form)`
   flex-direction: column;
   gap: 8px;
+
+  ${ButtonLarge} {
+    width: 100%;
+  }
+
+  ${InputLarge} {
+    margin-right: 0;
+  }
 `;
 
 export default AuthenticationProvider;
