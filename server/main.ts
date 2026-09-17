@@ -25,6 +25,7 @@ import { RedisPrefixHelper } from "./utils/RedisPrefixHelper";
 import ShutdownHelper, { ShutdownOrder } from "./utils/ShutdownHelper";
 import { getSSLOptions } from "./utils/ssl";
 import { checkUpdates } from "./utils/updates";
+import bootstrapAdmin from "./commands/bootstrapAdmin";
 
 /**
  * Starts a single forked service process. This is where the heavy dependency
@@ -37,6 +38,7 @@ import { checkUpdates } from "./utils/updates";
 export async function start(id: number, disconnect: () => void) {
   // Ensure plugins are loaded
   PluginManager.loadPlugins();
+  await bootstrapAdmin();
 
   // Clear unfurl cache in development so code changes take effect immediately
   if (env.isDevelopment) {

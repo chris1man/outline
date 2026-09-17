@@ -80,6 +80,24 @@ export class Environment {
   @IsNotEmpty()
   public UTILS_SECRET = environment.UTILS_SECRET ?? "";
 
+  /** Email address used to create the first local administrator. */
+  @IsOptional()
+  public INITIAL_ADMIN_EMAIL = this.toOptionalString(
+    environment.INITIAL_ADMIN_EMAIL
+  );
+
+  /** Password used to create the first local administrator. */
+  @IsOptional()
+  public INITIAL_ADMIN_PASSWORD = this.toOptionalString(
+    environment.INITIAL_ADMIN_PASSWORD
+  );
+
+  /** Display name for a workspace created by the initial administrator. */
+  @IsOptional()
+  public INITIAL_TEAM_NAME = this.toOptionalString(
+    environment.INITIAL_TEAM_NAME
+  );
+
   /**
    * The url of the database.
    */
