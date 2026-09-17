@@ -5,7 +5,27 @@ services:
       dockerfile: Dockerfile
     image: outline-local:latest
     restart: unless-stopped
-    env_file: .env
+    environment:
+      NODE_ENV: ${NODE_ENV:-production}
+      URL: ${URL:?Set URL in the stack environment}
+      PORT: ${PORT:-3000}
+      FORCE_HTTPS: ${FORCE_HTTPS:-true}
+      PROXY_HEADERS_TRUSTED: ${PROXY_HEADERS_TRUSTED:-true}
+      SECRET_KEY: ${SECRET_KEY:?Set SECRET_KEY in the stack environment}
+      UTILS_SECRET: ${UTILS_SECRET:?Set UTILS_SECRET in the stack environment}
+      DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL in the stack environment}
+      PGSSLMODE: ${PGSSLMODE:-disable}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+      FILE_STORAGE: ${FILE_STORAGE:-local}
+      FILE_STORAGE_LOCAL_ROOT_DIR: /var/lib/outline/data
+      FILE_STORAGE_UPLOAD_MAX_SIZE: ${FILE_STORAGE_UPLOAD_MAX_SIZE:-262144000}
+      ENABLE_UPDATES: ${ENABLE_UPDATES:-true}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USERNAME: ${SMTP_USERNAME:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM_EMAIL: ${SMTP_FROM_EMAIL:-}
+      SMTP_SECURE: ${SMTP_SECURE:-false}
     depends_on:
       postgres:
         condition: service_healthy
