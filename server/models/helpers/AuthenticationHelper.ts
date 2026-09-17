@@ -1,5 +1,6 @@
 /* oxlint-disable @typescript-eslint/no-var-requires */
 import { find } from "es-toolkit/compat";
+import { Op } from "sequelize";
 import env from "@server/env";
 import type Team from "@server/models/Team";
 import User from "@server/models/User";
@@ -40,9 +41,9 @@ export default class AuthenticationHelper {
   public static async providersForTeam(team?: Team) {
     const isCloudHosted = env.isCloudHosted;
 
-    // Only check passkeys count if the team has passkeys enabled, to avoid
-    // an unnecessary database query in the common case.
+    // Only query optional local authentication methods for a team.
     let teamHasPasskeys = false;
+    let teamHasPasswords = false;
     if (team?.passkeysEnabled) {
       const count = await UserPasskey.count({
         include: [
@@ -56,6 +57,16 @@ export default class AuthenticationHelper {
       teamHasPasskeys = count > 0;
     }
 
+    if (team) {
+      teamHasPasswords =
+        (await User.count({
+          where: {
+            teamId: team.id,
+            passwordDigest: { [Op.ne]: null },
+          },
+        })) > 0;
+    }
+
     return AuthenticationHelper.providers
       .sort((hook) =>
         hook.value.id === "email" || hook.value.id === "passkeys" ? 1 : -1
@@ -65,6 +76,10 @@ export default class AuthenticationHelper {
         // provider using passport, instead it exists as a boolean option.
         if (hook.value.id === "email") {
           return team?.emailSigninEnabled;
+        }
+
+        if (hook.value.id === "password") {
+          return teamHasPasswords;
         }
 
         // Passkeys is an exception as it does not have an authentication

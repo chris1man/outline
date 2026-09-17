@@ -7,12 +7,14 @@ import { errToString } from "@shared/utils/error";
 import Button from "~/components/Button";
 import Heading from "~/components/Heading";
 import Input from "~/components/Input";
+import InputLarge from "~/components/InputLarge";
 import Scene from "~/components/Scene";
 import Text from "~/components/Text";
 import { UserChangeEmailDialog } from "~/components/UserDialogs";
 import env from "~/env";
 import useCurrentUser from "~/hooks/useCurrentUser";
 import useStores from "~/hooks/useStores";
+import { client } from "~/utils/ApiClient";
 import { UserValidation } from "@shared/validations";
 import ImageInput from "./components/ImageInput";
 import SettingRow from "./components/SettingRow";
@@ -22,6 +24,7 @@ const Profile = () => {
   const { dialogs } = useStores();
   const form = React.useRef<HTMLFormElement>(null);
   const [name, setName] = React.useState<string>(user.name);
+  const [password, setPassword] = React.useState("");
   const { t } = useTranslation();
 
   const handleSubmit = async (ev: React.SyntheticEvent) => {
@@ -55,6 +58,18 @@ const Profile = () => {
 
   const handleAvatarError = (error: string | null | undefined) => {
     toast.error(error || t("Unable to upload new profile picture"));
+  };
+
+  const handleSetPassword = async (event: React.SyntheticEvent) => {
+    event.preventDefault();
+
+    try {
+      await client.post("/users.setPassword", { password });
+      setPassword("");
+      toast.success(t("Password saved"));
+    } catch (err) {
+      toast.error(errToString(err));
+    }
   };
 
   const isValid = form.current?.checkValidity();
@@ -112,6 +127,28 @@ const Profile = () => {
 
         <Button type="submit" disabled={isSaving || !isValid}>
           {isSaving ? `${t("Saving")}…` : t("Save")}
+        </Button>
+      </form>
+
+      <Heading as="h2">{t("Password")}</Heading>
+      <Text as="p" type="secondary">
+        {t(
+          "Use at least 12 characters. Keep email sign-in enabled for recovery."
+        )}
+      </Text>
+      <form onSubmit={handleSetPassword}>
+        <InputLarge
+          type="password"
+          value={password}
+          onChange={(event) => setPassword(event.target.value)}
+          autoComplete="new-password"
+          minLength={12}
+          maxLength={128}
+          placeholder={t("New password")}
+          required
+        />
+        <Button type="submit" disabled={password.length < 12}>
+          {t("Save password")}
         </Button>
       </form>
     </Scene>

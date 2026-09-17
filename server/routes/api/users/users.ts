@@ -31,10 +31,25 @@ import { RateLimiterStrategy } from "@server/utils/RateLimiter";
 import { safeEqual } from "@server/utils/crypto";
 import { QueryHelper } from "@server/storage/QueryHelper";
 import { getDetailsForEmailUpdateToken } from "@server/utils/jwt";
+import { hashPassword } from "@server/utils/password";
 import pagination from "../middlewares/pagination";
 import * as T from "./schema";
 
 const router = new Router();
+
+router.post(
+  "users.setPassword",
+  rateLimiter(RateLimiterStrategy.FivePerHour),
+  auth(),
+  validate(T.UsersSetPasswordSchema),
+  async (ctx: APIContext<T.UsersSetPasswordReq>) => {
+    const { user } = ctx.state.auth;
+    user.passwordDigest = await hashPassword(ctx.input.body.password);
+    await user.saveWithCtx(ctx);
+
+    ctx.body = { success: true };
+  }
+);
 
 router.post(
   "users.list",

@@ -138,6 +138,14 @@ export const UsersUpdateSchema = BaseSchema.extend({
 
 export type UsersUpdateReq = z.infer<typeof UsersUpdateSchema>;
 
+export const UsersSetPasswordSchema = BaseSchema.extend({
+  body: z.object({
+    password: z.string().min(12).max(128),
+  }),
+});
+
+export type UsersSetPasswordReq = z.infer<typeof UsersSetPasswordSchema>;
+
 export const UsersDeleteSchema = BaseSchema.extend({
   body: z.object({
     code: z.string().optional(),

@@ -163,6 +163,10 @@ class User extends ParanoidModel<
   @Encrypted
   jwtSecret: string;
 
+  @Column(DataType.STRING)
+  @SkipChangeset
+  passwordDigest: string | null;
+
   @IsDate
   @Column(DataType.DATE)
   @SkipChangeset
