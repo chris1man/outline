@@ -1,6 +1,6 @@
 services:
   outline:
-    image: ghcr.io/chris1man/outline:email-password-auth
+    image: ghcr.io/chris1man/outline:sha-54e87885639d8d36bac89bb6ad75a6898401f1ec
     pull_policy: always
     restart: unless-stopped
     environment:
