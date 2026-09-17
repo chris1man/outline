@@ -1,6 +1,7 @@
 services:
   outline:
     image: ghcr.io/chris1man/outline:email-password-auth
+    pull_policy: always
     restart: unless-stopped
     environment:
       NODE_ENV: ${NODE_ENV:-production}
