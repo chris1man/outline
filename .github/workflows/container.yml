@@ -25,8 +25,6 @@ jobs:
         with:
           context: .
           push: true
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
           tags: |
             ghcr.io/chris1man/outline:email-password-auth
             ghcr.io/chris1man/outline:sha-${{ github.sha }}
