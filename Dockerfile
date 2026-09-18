@@ -6,7 +6,7 @@ ARG APP_PATH
 WORKDIR $APP_PATH
 
 COPY . .
-RUN yarn build
+RUN corepack enable && yarn build
 
 # ---
 FROM node:24.16.0-slim AS runner
