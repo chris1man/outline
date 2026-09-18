@@ -66,7 +66,7 @@ function SharedSidebar({ share }: Props) {
   }
 
   return (
-    <Sidebar canCollapse={false} showAccountMenu={false}>
+    <SharedSidebarContainer canCollapse={false} showAccountMenu={false}>
       {brandingAvailable && (
         <SidebarButton
           title={displayName}
@@ -120,12 +120,16 @@ function SharedSidebar({ share }: Props) {
           </SidebarExpansionContext.Provider>
         </Section>
       </ScrollContainer>
-    </Sidebar>
+    </SharedSidebarContainer>
   );
 }
 
 const ScrollContainer = styled(Scrollable)`
   padding-bottom: 16px;
+`;
+
+const SharedSidebarContainer = styled(Sidebar)`
+  background: ${s("sidebarActiveBackground")};
 `;
 
 const TopSection = styled(Flex)`

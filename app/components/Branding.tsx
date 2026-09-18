@@ -1,23 +1,17 @@
 import * as React from "react";
 import styled from "styled-components";
 import { depths, s } from "@shared/styles";
-import env from "~/env";
-import OutlineIcon from "./Icons/OutlineIcon";
 
-type Props = {
-  href?: string;
-};
-
-function Branding({ href = env.URL }: Props) {
+function Branding() {
   return (
-    <Link href={href} target="_blank">
-      <OutlineIcon size={20} />
-      &nbsp;{env.APP_NAME}
-    </Link>
+    <Container>
+      <Logo src="/images/maki-icon.svg" alt="MAKI" />
+      &nbsp;MAKI
+    </Container>
   );
 }
 
-const Link = styled.a`
+const Container = styled.div`
   justify-content: center;
   padding-bottom: 16px;
 
@@ -29,10 +23,6 @@ const Link = styled.a`
   display: flex;
   align-items: center;
 
-  svg {
-    fill: ${s("text")};
-  }
-
   z-index: ${depths.sidebar + 1};
   background: ${s("sidebarBackground")};
   position: fixed;
@@ -40,9 +30,11 @@ const Link = styled.a`
   right: 0;
   padding: 16px;
 
-  &:hover {
-    background: ${s("sidebarControlHoverBackground")};
-  }
+`;
+
+const Logo = styled.img`
+  width: 20px;
+  height: 20px;
 `;
 
 export default React.memo(Branding);
