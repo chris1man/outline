@@ -1,5 +1,4 @@
 import { observer } from "mobx-react";
-import { transparentize } from "polished";
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { useHistory } from "react-router-dom";
@@ -201,14 +200,6 @@ const StickyWrapper = styled.div`
 
   padding: 0 16px;
   overflow-y: auto;
-  border-radius: 8px;
-  background: ${s("sidebarActiveBackground")};
-
-  @supports (backdrop-filter: blur(20px)) {
-    backdrop-filter: blur(20px);
-    background: ${(props) =>
-      transparentize(0.2, props.theme.sidebarActiveBackground)};
-  }
 
   ${breakpoint("tablet")`
     display: block;
@@ -237,8 +228,14 @@ const ListItem = styled.li<{ level: number; active?: boolean }>`
   word-break: break-word;
 
   a {
+    display: block;
+    padding: 4px 8px;
+    margin-inline: -8px;
+    border-radius: 6px;
     font-weight: ${(props) => (props.active ? "600" : "inherit")};
     color: ${(props) => (props.active ? props.theme.accent : props.theme.text)};
+    background: ${(props) =>
+      props.active ? props.theme.sidebarActiveBackground : "transparent"};
 
     ${Prefix} {
       color: ${(props) =>
