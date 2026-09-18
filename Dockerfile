@@ -1,6 +1,5 @@
 ARG APP_PATH=/opt/outline
-ARG DEPENDENCIES_IMAGE=outlinewiki/outline-base
-FROM node:24.16.0 AS builder
+FROM node:24.16.0 AS dependencies
 
 ARG APP_PATH
 WORKDIR $APP_PATH
@@ -12,11 +11,22 @@ RUN apt-get update && apt-get install -y cmake && rm -rf /var/lib/apt/lists/*
 RUN npm install -g corepack && corepack enable
 RUN yarn install --immutable --network-timeout 1000000
 
+# ---
+FROM dependencies AS builder
+
+ARG APP_PATH
+WORKDIR $APP_PATH
+
 COPY . .
 RUN yarn build
 
 # ---
-FROM ${DEPENDENCIES_IMAGE} AS dependencies
+FROM dependencies AS production-dependencies
+
+ARG APP_PATH
+WORKDIR $APP_PATH
+
+RUN yarn workspaces focus --production && yarn cache clean
 
 # ---
 FROM node:24.16.0-slim AS runner
@@ -43,7 +53,7 @@ COPY --from=builder --chown=nodejs:nodejs $APP_PATH/build ./build
 COPY --from=builder --chown=nodejs:nodejs $APP_PATH/server ./server
 COPY --from=builder --chown=nodejs:nodejs $APP_PATH/public ./public
 COPY --from=builder --chown=nodejs:nodejs $APP_PATH/.sequelizerc ./.sequelizerc
-COPY --from=dependencies --chown=nodejs:nodejs $APP_PATH/node_modules ./node_modules
+COPY --from=production-dependencies --chown=nodejs:nodejs $APP_PATH/node_modules ./node_modules
 COPY --from=builder --chown=nodejs:nodejs $APP_PATH/package.json ./package.json
 # Install wget to healthcheck the server
 RUN  apt-get update \
