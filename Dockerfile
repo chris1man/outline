@@ -1,12 +1,22 @@
 ARG APP_PATH=/opt/outline
-ARG BASE_IMAGE=outlinewiki/outline-base
-FROM ${BASE_IMAGE} AS base
+ARG DEPENDENCIES_IMAGE=outlinewiki/outline-base
+FROM node:24.16.0 AS builder
 
 ARG APP_PATH
 WORKDIR $APP_PATH
 
+COPY package.json yarn.lock .yarnrc.yml ./
+COPY patches ./patches
+
+RUN apt-get update && apt-get install -y cmake && rm -rf /var/lib/apt/lists/*
+RUN npm install -g corepack && corepack enable
+RUN yarn install --immutable --network-timeout 1000000
+
 COPY . .
-RUN corepack enable && yarn build
+RUN yarn build
+
+# ---
+FROM ${DEPENDENCIES_IMAGE} AS dependencies
 
 # ---
 FROM node:24.16.0-slim AS runner
@@ -29,12 +39,12 @@ RUN addgroup --gid 1001 nodejs && \
     chown -R nodejs:nodejs /var/lib/outline && \
     chown -R nodejs:nodejs $APP_PATH
 
-COPY --from=base --chown=nodejs:nodejs $APP_PATH/build ./build
-COPY --from=base --chown=nodejs:nodejs $APP_PATH/server ./server
-COPY --from=base --chown=nodejs:nodejs $APP_PATH/public ./public
-COPY --from=base --chown=nodejs:nodejs $APP_PATH/.sequelizerc ./.sequelizerc
-COPY --from=base --chown=nodejs:nodejs $APP_PATH/node_modules ./node_modules
-COPY --from=base --chown=nodejs:nodejs $APP_PATH/package.json ./package.json
+COPY --from=builder --chown=nodejs:nodejs $APP_PATH/build ./build
+COPY --from=builder --chown=nodejs:nodejs $APP_PATH/server ./server
+COPY --from=builder --chown=nodejs:nodejs $APP_PATH/public ./public
+COPY --from=builder --chown=nodejs:nodejs $APP_PATH/.sequelizerc ./.sequelizerc
+COPY --from=dependencies --chown=nodejs:nodejs $APP_PATH/node_modules ./node_modules
+COPY --from=builder --chown=nodejs:nodejs $APP_PATH/package.json ./package.json
 # Install wget to healthcheck the server
 RUN  apt-get update \
     && apt-get install -y wget \
