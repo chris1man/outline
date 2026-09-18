@@ -520,10 +520,6 @@ const ContentsContainer = styled.div<ContentsContainerProps>`
       position === TOCPosition.Left ? 1 : docFullWidth ? 2 : 3};
     justify-self: ${({ position }: ContentsContainerProps) =>
       position === TOCPosition.Left ? "end" : "start"};
-    background: ${({ position }: ContentsContainerProps) =>
-      position === TOCPosition.Left
-        ? s("sidebarActiveBackground")
-        : "transparent"};
   `};
 
   @media print {

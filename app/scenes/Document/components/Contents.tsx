@@ -202,11 +202,12 @@ const StickyWrapper = styled.div`
   padding: 0 16px;
   overflow-y: auto;
   border-radius: 8px;
-  background: ${s("background")};
+  background: ${s("sidebarActiveBackground")};
 
   @supports (backdrop-filter: blur(20px)) {
     backdrop-filter: blur(20px);
-    background: ${(props) => transparentize(0.2, props.theme.background)};
+    background: ${(props) =>
+      transparentize(0.2, props.theme.sidebarActiveBackground)};
   }
 
   ${breakpoint("tablet")`
