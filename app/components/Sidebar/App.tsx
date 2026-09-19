@@ -62,7 +62,7 @@ function AppSidebar() {
     void collections.fetchAll();
 
     if (!user.isViewer) {
-      void documents.fetchDrafts();
+      void documents.fetchPersonal();
     }
   }, [documents, collections, user.isViewer]);
 

@@ -2696,6 +2696,29 @@ describe("#documents.drafts", () => {
     expect(body.data.length).toEqual(1);
   });
 
+  it("should return only collectionless drafts when personal is requested", async () => {
+    const user = await buildUser();
+    const personal = await buildDraftDocument({
+      userId: user.id,
+      teamId: user.teamId,
+      collectionId: null,
+    });
+    await buildDraftDocument({
+      userId: user.id,
+      teamId: user.teamId,
+    });
+
+    const res = await server.post("/api/documents.drafts", user, {
+      body: { personal: true },
+    });
+    const body = await res.json();
+
+    expect(res.status).toEqual(200);
+    expect(body.data.map((document: { id: string }) => document.id)).toEqual([
+      personal.id,
+    ]);
+  });
+
   it("should return drafts, including ones without collectionIds", async () => {
     const drafts = [];
     const user = await buildUser();

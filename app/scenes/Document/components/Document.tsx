@@ -82,7 +82,7 @@ function DocumentScene({
   onCreateLink,
   children,
 }: Props) {
-  const { auth, ui, dialogs } = useStores();
+  const { auth, dialogs } = useStores();
   const isMobile = useMobile();
   const { t } = useTranslation();
   const history = useHistory();
@@ -306,11 +306,8 @@ function DocumentScene({
     tocPosition ??
     ((team?.getPreference(TeamPreference.TocPosition) as TOCPosition) ||
       TOCPosition.Left);
-  // Hide on mobile at render time so the stored preference is kept intact.
-  const showContents =
-    tocPos &&
-    !isMobile &&
-    (isShare ? ui.tocVisible !== false : ui.tocVisible === true);
+  // Hide on mobile where the document has no room for a secondary column.
+  const showContents = !!tocPos && !isMobile;
   const tocOffset =
     tocPos === TOCPosition.Left
       ? EditorStyleHelper.tocWidth / -2

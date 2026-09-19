@@ -652,7 +652,8 @@ router.post(
   pagination(),
   validate(T.DocumentsDraftsSchema),
   async (ctx: APIContext<T.DocumentsDraftsReq>) => {
-    const { collectionId, dateFilter, direction, sort } = ctx.input.body;
+    const { collectionId, dateFilter, direction, sort, personal } =
+      ctx.input.body;
     const { user } = ctx.state.auth;
 
     if (collectionId) {
@@ -668,9 +669,9 @@ router.post(
     const where: WhereOptions = {
       teamId: user.teamId,
       createdById: user.id,
-      collectionId: {
-        [Op.or]: [{ [Op.in]: collectionIds }, { [Op.is]: null }],
-      },
+      collectionId: personal
+        ? { [Op.is]: null }
+        : { [Op.or]: [{ [Op.in]: collectionIds }, { [Op.is]: null }] },
       publishedAt: {
         [Op.is]: null,
       },

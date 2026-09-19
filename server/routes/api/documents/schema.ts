@@ -225,6 +225,8 @@ export const DocumentsDraftsSchema = BaseSchema.extend({
   body: DocumentsSortParamsSchema.extend(DateFilterSchema.shape).extend({
     /** Id of the collection to which the document belongs */
     collectionId: z.uuid().optional(),
+    /** Return only drafts without a collection, visible to their author alone. */
+    personal: z.boolean().optional(),
   }),
 });
 

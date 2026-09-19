@@ -1,5 +1,5 @@
 import { observer } from "mobx-react";
-import { TableOfContentsIcon, EditIcon } from "outline-icons";
+import { EditIcon } from "outline-icons";
 import { useState, useCallback, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
@@ -8,7 +8,7 @@ import styled, { useTheme } from "styled-components";
 import Icon from "@shared/components/Icon";
 import { HEADER_HEIGHT } from "@shared/constants";
 import { s } from "@shared/styles";
-import { altDisplay, metaDisplay } from "@shared/utils/keyboard";
+import { metaDisplay } from "@shared/utils/keyboard";
 import { publishDocument } from "~/actions/definitions/documents";
 import { restoreRevision } from "~/actions/definitions/revisions";
 import { Action } from "~/components/Actions";
@@ -24,14 +24,11 @@ import Tooltip from "~/components/Tooltip";
 import useCurrentTeam from "~/hooks/useCurrentTeam";
 import useCurrentUser from "~/hooks/useCurrentUser";
 import useEditingFocus from "~/hooks/useEditingFocus";
-import useKeyDown from "~/hooks/useKeyDown";
 import { useLocationSidebarContext } from "~/hooks/useLocationSidebarContext";
 import useMobile from "~/hooks/useMobile";
 import usePolicy from "~/hooks/usePolicy";
-import useStores from "~/hooks/useStores";
 import DocumentMenu from "~/menus/DocumentMenu";
 import NewChildDocumentMenu from "~/menus/NewChildDocumentMenu";
-import TableOfContentsMenu from "~/menus/TableOfContentsMenu";
 import TemplatesMenu from "~/menus/TemplatesMenu";
 import type Document from "~/models/Document";
 import type Revision from "~/models/Revision";
@@ -70,7 +67,6 @@ function DocumentHeader({
   onSave,
 }: Props) {
   const { t } = useTranslation();
-  const { ui } = useStores();
   const theme = useTheme();
   const team = useCurrentTeam({ rejectOnEmpty: false });
   const user = useCurrentUser({ rejectOnEmpty: false });
@@ -86,7 +82,7 @@ function DocumentHeader({
     );
   }, [isEditingFocus]);
 
-  const { hasHeadings, editor } = useDocumentContext();
+  const { editor } = useDocumentContext();
   const sidebarContext = useLocationSidebarContext();
   const [measureRef, size] = useMeasure();
   const isMobile = isMobileMedia || (size.width > 0 && size.width < 700);
@@ -102,36 +98,9 @@ function DocumentHeader({
     });
   }, [onSave]);
 
-  const handleToggle = useCallback(() => {
-    ui.set({ tocVisible: !ui.tocVisible });
-  }, [ui]);
-
   const can = usePolicy(document);
   const { isDeleted } = document;
   const canToggleEmbeds = team?.documentEmbeds;
-  const showContents = ui.tocVisible === true;
-
-  const toc = (
-    <Tooltip
-      content={
-        showContents
-          ? t("Hide contents")
-          : hasHeadings
-            ? t("Show contents")
-            : `${t("Show contents")} (${t("available when headings are added")})`
-      }
-      shortcut={`Ctrl+${altDisplay}+h`}
-      placement="bottom"
-    >
-      <TocButton
-        aria-label={t("Show contents")}
-        onClick={handleToggle}
-        icon={<TableOfContentsIcon />}
-        borderOnHover
-        neutral
-      />
-    </Tooltip>
-  );
   const editAction = (
     <Action>
       <Tooltip
@@ -156,25 +125,14 @@ function DocumentHeader({
     </Action>
   );
 
-  useKeyDown(
-    (event) => event.ctrlKey && event.altKey && event.code === "KeyH",
-    handleToggle,
-    {
-      allowInInput: true,
-    }
-  );
-
   return (
     <StyledHeader
       ref={measureRef}
       $hidden={isEditingFocus}
       hasSidebar
       left={
-        isMobile ? (
-          <TableOfContentsMenu />
-        ) : (
+        isMobile ? null : (
           <DocumentBreadcrumb document={document}>
-            {toc}{" "}
             <StarAction>
               <Star document={document} color={theme.textSecondary} />
             </StarAction>
@@ -302,17 +260,6 @@ function DocumentHeader({
 const StyledHeader = styled(Header)<{ $hidden: boolean }>`
   transition: opacity 500ms ease-in-out;
   ${(props) => props.$hidden && "opacity: 0;"}
-`;
-
-const TocButton = styled(Button)`
-  border-radius: 4px;
-
-  &&:hover:not(:disabled),
-  &&[aria-expanded="true"] {
-    background: ${s("buttonNeutralHoverBackground")};
-    box-shadow: none;
-    transition: none;
-  }
 `;
 
 const StarAction = styled.span`
