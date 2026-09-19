@@ -1,5 +1,5 @@
 import { observer } from "mobx-react";
-import { DraftsIcon } from "outline-icons";
+import { AttachmentIcon } from "outline-icons";
 import { useTranslation } from "react-i18next";
 import { Action } from "~/components/Actions";
 import Empty from "~/components/Empty";
@@ -17,12 +17,12 @@ function Personal() {
 
   return (
     <Scene
-      icon={<DraftsIcon />}
-      title={t("Personal")}
+      icon={<AttachmentIcon />}
+      title="Личное"
       left={<InputSearchPage source="personal" label={t("Search documents")} />}
       actions={<Action><NewDocumentMenu personal /></Action>}
     >
-      <Heading>{t("Personal")}</Heading>
+      <Heading>Личное</Heading>
       <Subheading sticky>{t("Documents")}</Subheading>
       <PaginatedDocumentList
         empty={<Empty>{t("You haven’t created any personal documents yet.")}</Empty>}
