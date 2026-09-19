@@ -1,6 +1,6 @@
 services:
   outline:
-    image: ghcr.io/chris1man/outline:sha-7f0e66dfa4000308197e46b313dd2b865899bd34
+    image: ghcr.io/chris1man/outline:sha-b980ce93f630f7d8da942e3df001099a522de244
     pull_policy: always
     restart: unless-stopped
     environment:
