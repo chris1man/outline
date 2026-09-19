@@ -652,8 +652,7 @@ router.post(
   pagination(),
   validate(T.DocumentsDraftsSchema),
   async (ctx: APIContext<T.DocumentsDraftsReq>) => {
-    const { collectionId, dateFilter, direction, sort, personal } =
-      ctx.input.body;
+    const { collectionId, dateFilter, direction, sort } = ctx.input.body;
     const { user } = ctx.state.auth;
 
     if (collectionId) {
@@ -669,9 +668,9 @@ router.post(
     const where: WhereOptions = {
       teamId: user.teamId,
       createdById: user.id,
-      collectionId: personal
-        ? { [Op.is]: null }
-        : { [Op.or]: [{ [Op.in]: collectionIds }, { [Op.is]: null }] },
+      collectionId: {
+        [Op.or]: [{ [Op.in]: collectionIds }, { [Op.is]: null }],
+      },
       publishedAt: {
         [Op.is]: null,
       },
@@ -700,6 +699,35 @@ router.post(
       pagination: ctx.state.pagination,
       data,
       policies,
+    };
+  }
+);
+
+router.post(
+  "documents.personal",
+  auth(),
+  pagination(),
+  validate(T.DocumentsPersonalSchema),
+  async (ctx: APIContext<T.DocumentsPersonalReq>) => {
+    const { sort, direction } = ctx.input.body;
+    const { user } = ctx.state.auth;
+    const where: WhereOptions = {
+      teamId: user.teamId,
+      createdById: user.id,
+      isPersonal: true,
+    };
+
+    const documents = await Document.withMembershipScope(user.id).findAll({
+      where,
+      order: [[sort, direction]],
+      offset: ctx.state.pagination.offset,
+      limit: ctx.state.pagination.limit,
+    });
+
+    ctx.body = {
+      pagination: ctx.state.pagination,
+      data: await presentDocuments(ctx, documents),
+      policies: presentPolicies(user, documents),
     };
   }
 );
@@ -1615,6 +1643,8 @@ router.post(
       throw InvalidRequestError("collectionId is required to move a document");
     }
 
+    document.isPersonal = false;
+
     const { documents, collectionChanged } = await documentMover(ctx, {
       document,
       collectionId: collectionId ?? null,
@@ -1819,6 +1849,7 @@ router.post(
       icon,
       color,
       publish,
+      personal,
       index,
       collectionId,
       parentDocumentId,
@@ -1831,6 +1862,12 @@ router.post(
 
     const { transaction } = ctx.state;
     const { user } = ctx.state.auth;
+
+    if (personal && (collectionId || parentDocumentId || publish)) {
+      throw ValidationError(
+        "Personal documents cannot be created in a collection or published"
+      );
+    }
 
     const { collection } = await authorizeDocumentCreate(ctx, {
       collectionId,
@@ -1871,6 +1908,7 @@ router.post(
       fullWidth,
       preferences,
       editorVersion,
+      isPersonal: personal,
     });
 
     if (collection) {

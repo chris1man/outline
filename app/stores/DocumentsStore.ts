@@ -34,7 +34,6 @@ import { extname, uploadFile } from "~/utils/files";
 type FetchPageParams = PaginationParams & {
   template?: boolean;
   collectionId?: string;
-  personal?: boolean;
 };
 
 export type SearchParams = {
@@ -277,7 +276,7 @@ export default class DocumentsStore extends Store<Document> {
 
   @computed
   get personal(): Document[] {
-    return this.drafts().filter((document) => !document.collectionId);
+    return this.all.filter((document) => document.isPersonal);
   }
 
   drafts = (
@@ -441,7 +440,7 @@ export default class DocumentsStore extends Store<Document> {
 
   @action
   fetchPersonal = (options: PaginationParams = {}): Promise<Document[]> =>
-    this.fetchNamedPage("drafts", { limit: 100, personal: true, ...options });
+    this.fetchNamedPage("personal", { limit: 100, ...options });
 
   @action
   fetchOwned = (options?: PaginationParams): Promise<Document[]> =>

@@ -116,6 +116,7 @@ async function presentDocument(
     res.templateId = document.templateId;
     res.insightsEnabled = document.insightsEnabled;
     res.popularityScore = document.popularityScore;
+    res.isPersonal = document.isPersonal;
     if (document.deletedById) {
       const deletedBy =
         document.deletedBy ??

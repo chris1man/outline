@@ -225,12 +225,16 @@ export const DocumentsDraftsSchema = BaseSchema.extend({
   body: DocumentsSortParamsSchema.extend(DateFilterSchema.shape).extend({
     /** Id of the collection to which the document belongs */
     collectionId: z.uuid().optional(),
-    /** Return only drafts without a collection, visible to their author alone. */
-    personal: z.boolean().optional(),
   }),
 });
 
 export type DocumentsDraftsReq = z.infer<typeof DocumentsDraftsSchema>;
+
+export const DocumentsPersonalSchema = BaseSchema.extend({
+  body: DocumentsSortParamsSchema,
+});
+
+export type DocumentsPersonalReq = z.infer<typeof DocumentsPersonalSchema>;
 
 export const DocumentsInfoSchema = BaseSchema.extend({
   body: z.object({
@@ -574,6 +578,9 @@ export const DocumentsCreateSchema = BaseSchema.extend({
 
     /** Boolean to denote if the doc should be published */
     publish: z.boolean().optional(),
+
+    /** Create a private document outside collections. */
+    personal: z.boolean().optional(),
 
     /** Collection to create document within  */
     collectionId: z.uuid().nullish(),

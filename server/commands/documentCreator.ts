@@ -22,6 +22,7 @@ type Props = Optional<
     | "importId"
     | "apiImportId"
     | "fullWidth"
+    | "isPersonal"
     | "preferences"
     | "sourceMetadata"
     | "editorVersion"
@@ -162,6 +163,7 @@ export default async function documentCreator(
     content,
     template,
     fullWidth,
+    isPersonal,
     preferences,
     importId,
     apiImportId,
@@ -225,8 +227,9 @@ export default async function documentCreator(
     updatedAt: updatedAt ?? createdAt,
     lastModifiedById: lastModifiedById ?? createdById ?? user.id,
     createdById: createdById ?? user.id,
+    isPersonal,
+    publishedAt: isPersonal ? new Date() : publishedAt,
     templateId,
-    publishedAt,
     importId,
     apiImportId,
     sourceMetadata,

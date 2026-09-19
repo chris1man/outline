@@ -29,6 +29,7 @@ import DraggableSection, {
   normalizeSidebarSectionOrder,
 } from "./components/DraggableSection";
 import { DraftsLink } from "./components/DraftsLink";
+import { PersonalLink } from "./components/PersonalLink";
 import DragPlaceholder from "./components/DragPlaceholder";
 import { DismissableSidebarAction } from "./components/DismissableSidebarAction";
 import HistoryNavigation from "./components/HistoryNavigation";
@@ -62,7 +63,7 @@ function AppSidebar() {
     void collections.fetchAll();
 
     if (!user.isViewer) {
-      void documents.fetchPersonal();
+      void Promise.all([documents.fetchDrafts(), documents.fetchPersonal()]);
     }
   }, [documents, collections, user.isViewer]);
 
@@ -136,6 +137,7 @@ function AppSidebar() {
               onClick={handleSearchClick}
               onClickIntent={Scenes.Search.preload}
             />
+            {can.createDocument && <PersonalLink />}
             {can.createDocument && <DraftsLink />}
           </Section>
         </Overflow>

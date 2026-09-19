@@ -129,6 +129,11 @@ export default class Document extends ArchivableModel implements Searchable {
   @Field
   @observable
   collectionId?: string | null = undefined;
+
+  /** Whether the document belongs to the current user outside collections. */
+  @Field
+  @observable
+  isPersonal = false;
   /**
    * The collection that this document belongs to.
    */

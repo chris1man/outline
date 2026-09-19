@@ -28,6 +28,7 @@ allow(User, "read", Document, (actor, document) =>
         DocumentPermission.Admin,
       ]),
       and(!!document?.isDraft, actor.id === document?.createdById),
+      and(!!document?.isPersonal, actor.id === document?.createdById),
       can(actor, "readDocument", document?.collection)
     )
   )
@@ -77,6 +78,7 @@ allow(
 allow(User, "share", Document, (actor, document) =>
   and(
     !!document?.isActive,
+    !document?.isPersonal,
     isTeamMutable(actor),
     can(actor, "read", document),
     or(!document?.collection, can(actor, "share", document?.collection))
@@ -95,7 +97,10 @@ allow(User, "update", Document, (actor, document) =>
       ]),
       or(
         can(actor, "updateDocument", document?.collection),
-        and(!!document?.isDraft && actor.id === document?.createdById)
+        and(
+          (!!document?.isDraft || !!document?.isPersonal) &&
+            actor.id === document?.createdById
+        )
       )
     )
   )
@@ -112,6 +117,7 @@ allow(User, "publish", Document, (actor, document) =>
 allow(User, "manageUsers", Document, (actor, document) =>
   and(
     isTeamMutable(actor),
+    !document?.isPersonal,
     can(actor, "read", document),
     or(
       includesMembership(document, [DocumentPermission.Admin]),
@@ -149,7 +155,11 @@ allow(User, "move", Document, (actor, document) =>
       ]),
       can(actor, "updateDocument", document?.collection),
       and(!!document?.isDraft && actor.id === document?.createdById),
-      and(!!document?.isDraft && !document?.collection)
+      and(
+        (!!document?.isDraft || !!document?.isPersonal) &&
+          !document?.collection &&
+          actor.id === document?.createdById
+      )
     )
   )
 );
@@ -158,6 +168,7 @@ allow(User, "createChildDocument", Document, (actor, document) =>
   and(
     //
     !document?.isDraft,
+    !document?.isPersonal,
     can(actor, "update", document)
   )
 );

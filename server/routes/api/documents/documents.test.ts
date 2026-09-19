@@ -2696,21 +2696,22 @@ describe("#documents.drafts", () => {
     expect(body.data.length).toEqual(1);
   });
 
-  it("should return only collectionless drafts when personal is requested", async () => {
+  it("should return personal documents only to their creator", async () => {
     const user = await buildUser();
-    const personal = await buildDraftDocument({
+    const personal = await buildDocument({
       userId: user.id,
       teamId: user.teamId,
       collectionId: null,
+      isPersonal: true,
+      publishedAt: new Date(),
     });
-    await buildDraftDocument({
-      userId: user.id,
-      teamId: user.teamId,
+    await buildDocument({
+      collectionId: null,
+      isPersonal: true,
+      publishedAt: new Date(),
     });
 
-    const res = await server.post("/api/documents.drafts", user, {
-      body: { personal: true },
-    });
+    const res = await server.post("/api/documents.personal", user);
     const body = await res.json();
 
     expect(res.status).toEqual(200);

@@ -9,7 +9,7 @@ import usePolicy from "~/hooks/usePolicy";
 import { preloadEditor } from "~/routes/scenes";
 import { newDocumentPath } from "~/utils/routeHelpers";
 
-function NewDocumentMenu() {
+function NewDocumentMenu({ personal = false }: { personal?: boolean }) {
   const { t } = useTranslation();
   const team = useCurrentTeam();
   const can = usePolicy(team);
@@ -22,7 +22,7 @@ function NewDocumentMenu() {
     <Tooltip content={t("New document")} shortcut="n" placement="bottom">
       <Button
         as={Link}
-        to={newDocumentPath()}
+        to={newDocumentPath(undefined, personal ? { personal: true } : {})}
         icon={<PlusIcon />}
         onPointerEnter={preloadEditor}
         onFocus={preloadEditor}

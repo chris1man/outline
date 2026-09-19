@@ -19,6 +19,7 @@ import * as Scenes from "./scenes";
 import {
   archivePath,
   draftsPath,
+  personalPath,
   homePath,
   searchPath,
   settingsPath,
@@ -67,6 +68,13 @@ function AuthenticatedRoutes() {
         >
           <SplitView>
             <Switch>
+              {can.createDocument && (
+                <Route
+                  exact
+                  path={personalPath()}
+                  component={Scenes.Personal.Component}
+                />
+              )}
               {can.createDocument && (
                 <Route
                   exact

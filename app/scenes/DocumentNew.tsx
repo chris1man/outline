@@ -50,6 +50,7 @@ function DocumentNew() {
               parentDocument?.fullWidth ||
               user.getPreference(UserPreference.FullWidthDocuments),
             templateId: query.get("templateId") ?? undefined,
+            personal: query.get("personal") === "true",
             title: query.get("title") ?? "",
             data: ProsemirrorDataHelper.getEmpty(),
           },

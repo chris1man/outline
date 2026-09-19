@@ -34,6 +34,10 @@ export function draftsPath(): string {
   return "/drafts";
 }
 
+export function personalPath(): string {
+  return "/personal";
+}
+
 /**
  * Returns the path to the archive screen.
  *
@@ -215,6 +219,7 @@ export function newDocumentPath(
   collectionId?: string | null,
   params: {
     templateId?: string;
+    personal?: boolean;
   } = {}
 ): string {
   const search = queryString.stringify(params);

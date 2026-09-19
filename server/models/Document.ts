@@ -350,6 +350,11 @@ class Document extends ArchivableModel<
   @Column(DataType.BOOLEAN)
   template: boolean;
 
+  /** Whether the document belongs only to its creator, outside collections. */
+  @Default(false)
+  @Column(DataType.BOOLEAN)
+  isPersonal: boolean;
+
   @Column(DataType.BOOLEAN)
   insightsEnabled: boolean;
 
