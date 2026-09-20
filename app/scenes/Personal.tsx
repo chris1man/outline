@@ -8,7 +8,6 @@ import Heading from "~/components/Heading";
 import InputSearchPage from "~/components/InputSearchPage";
 import PaginatedDocumentList from "~/components/PaginatedDocumentList";
 import Scene from "~/components/Scene";
-import Subheading from "~/components/Subheading";
 import { Tab, Tabs } from "~/components/Tabs";
 import useStores from "~/hooks/useStores";
 import NewDocumentMenu from "~/menus/NewDocumentMenu";
@@ -42,7 +41,6 @@ function Personal() {
         <PersonalFiles />
       ) : (
         <>
-          <Subheading sticky>{t("Documents")}</Subheading>
           <PaginatedDocumentList
             empty={
               <Empty>{t("You haven’t created any personal documents yet.")}</Empty>
