@@ -69,6 +69,20 @@ class Attachment extends IdModel<
   @Column(DataType.DATE)
   expiresAt: Date | null;
 
+  /** Whether this attachment belongs to a user's private file space. */
+  @Default(false)
+  @Column(DataType.BOOLEAN)
+  isPersonal: boolean;
+
+  /** Whether this record is a folder rather than a stored file. */
+  @Default(false)
+  @Column(DataType.BOOLEAN)
+  isFolder: boolean;
+
+  /** The containing private folder, if any. */
+  @Column(DataType.UUID)
+  parentAttachmentId: string | null;
+
   // getters
 
   /**

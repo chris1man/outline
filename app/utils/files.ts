@@ -11,6 +11,10 @@ type UploadOptions = {
   name?: string;
   /** The document that this file was uploaded in, if any */
   documentId?: string;
+  /** Whether to store this file in the current user's private file space. */
+  personal?: boolean;
+  /** The private folder to store this file in, if any. */
+  parentId?: string | null;
   /** The preset to use for attachment configuration */
   preset: AttachmentPreset;
   /** Callback will be passed a number between 0-1 as upload progresses */
@@ -54,6 +58,8 @@ export const uploadFile = async (
   const response = await client.post("/attachments.create", {
     preset: options.preset,
     documentId: options.documentId,
+    personal: options.personal,
+    parentId: options.parentId,
     contentType: file.type,
     size: file.size,
     name,

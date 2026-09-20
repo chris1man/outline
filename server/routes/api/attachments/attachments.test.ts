@@ -119,6 +119,38 @@ describe("#attachments.list", () => {
     const res = await server.post("/api/attachments.list");
     expect(res.status).toEqual(401);
   });
+
+  it("should return only the user's personal files in the selected folder", async () => {
+    const user = await buildUser();
+    const anotherUser = await buildUser({ teamId: user.teamId });
+    const folder = await buildAttachment({
+      teamId: user.teamId,
+      userId: user.id,
+      isPersonal: true,
+      isFolder: true,
+    });
+    const file = await buildAttachment({
+      teamId: user.teamId,
+      userId: user.id,
+      isPersonal: true,
+      parentAttachmentId: folder.id,
+    });
+    await buildAttachment({
+      teamId: user.teamId,
+      userId: anotherUser.id,
+      isPersonal: true,
+      parentAttachmentId: folder.id,
+    });
+
+    const res = await server.post("/api/attachments.list", user, {
+      body: { personal: true, parentId: folder.id },
+    });
+    const body = await res.json();
+
+    expect(res.status).toEqual(200);
+    expect(body.data).toHaveLength(1);
+    expect(body.data[0].id).toEqual(file.id);
+  });
 });
 
 describe("#attachments.create", () => {
@@ -697,6 +729,23 @@ describe("#attachments.redirect", () => {
         id: attachment.id,
       },
     });
+    expect(res.status).toEqual(403);
+  });
+
+  it("should not return a redirect for another user's personal file", async () => {
+    const user = await buildUser();
+    const anotherUser = await buildUser({ teamId: user.teamId });
+    const attachment = await buildAttachment({
+      teamId: user.teamId,
+      userId: anotherUser.id,
+      acl: "private",
+      isPersonal: true,
+    });
+
+    const res = await server.post("/api/attachments.redirect", user, {
+      body: { id: attachment.id },
+    });
+
     expect(res.status).toEqual(403);
   });
 

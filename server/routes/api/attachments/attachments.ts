@@ -31,33 +31,83 @@ import * as T from "./schema";
 
 const router = new Router();
 
+const assertPersonalFolder = async (
+  ctx: APIContext,
+  parentId?: string | null
+) => {
+  if (!parentId) {
+    return;
+  }
+
+  const parent = await Attachment.findOne({
+    where: {
+      id: parentId,
+      teamId: ctx.state.auth.user.teamId,
+      userId: ctx.state.auth.user.id,
+      isPersonal: true,
+      isFolder: true,
+    },
+    transaction: ctx.state.transaction,
+  });
+  if (!parent) {
+    throw AuthorizationError();
+  }
+};
+
+const destroyPersonalAttachment = async (
+  ctx: APIContext,
+  attachment: Attachment
+) => {
+  const children = await Attachment.findAll({
+    where: {
+      teamId: attachment.teamId,
+      userId: attachment.userId,
+      isPersonal: true,
+      parentAttachmentId: attachment.id,
+    },
+    transaction: ctx.state.transaction,
+  });
+  for (const child of children) {
+    await destroyPersonalAttachment(ctx, child);
+  }
+  await attachment.destroyWithCtx(ctx);
+};
+
 router.post(
   "attachments.list",
   auth(),
   pagination(),
   validate(T.AttachmentsListSchema),
   async (ctx: APIContext<T.AttachmentsListReq>) => {
-    const { documentId, userId } = ctx.input.body;
+    const { documentId, userId, personal, parentId } = ctx.input.body;
     const { user } = ctx.state.auth;
 
     const where: WhereOptions<Attachment> = {
       teamId: user.teamId,
     };
 
-    // If a specific user is passed then add to filters
-    if (userId && user.isAdmin) {
-      where.userId = userId;
-    } else {
+    if (personal) {
       where.userId = user.id;
-    }
+      where.isPersonal = true;
+      where.parentAttachmentId = parentId ?? null;
+    } else {
+      where.isPersonal = false;
 
-    // If a specific document is passed then add to filters
-    if (documentId) {
-      const document = await Document.findByPk(documentId, {
-        userId: user.id,
-      });
-      authorize(user, "read", document);
-      where.documentId = documentId;
+      // If a specific user is passed then add to filters
+      if (userId && user.isAdmin) {
+        where.userId = userId;
+      } else {
+        where.userId = user.id;
+      }
+
+      // If a specific document is passed then add to filters
+      if (documentId) {
+        const document = await Document.findByPk(documentId, {
+          userId: user.id,
+        });
+        authorize(user, "read", document);
+        where.documentId = documentId;
+      }
     }
 
     const [attachments, total] = await Promise.all([
@@ -87,11 +137,29 @@ router.post(
   validate(T.AttachmentsCreateSchema),
   transaction(),
   async (ctx: APIContext<T.AttachmentCreateReq>) => {
-    const { id, name, documentId, contentType, size, preset } = ctx.input.body;
+    const {
+      id,
+      name,
+      documentId,
+      contentType,
+      size,
+      preset,
+      personal,
+      parentId,
+    } = ctx.input.body;
     const { auth, transaction } = ctx.state;
     const { user } = auth;
 
-    if (documentId) {
+    if (
+      personal &&
+      (documentId || preset !== AttachmentPreset.DocumentAttachment)
+    ) {
+      throw ValidationError("Personal files cannot belong to a document");
+    }
+
+    if (personal) {
+      await assertPersonalFolder(ctx, parentId);
+    } else if (documentId) {
       const document = await Document.findByPk(documentId, {
         userId: user.id,
         transaction,
@@ -124,7 +192,7 @@ router.post(
     }
 
     const modelId = id ?? randomUUID();
-    const acl = AttachmentHelper.presetToAcl(preset);
+    const acl = personal ? "private" : AttachmentHelper.presetToAcl(preset);
     const key = AttachmentHelper.getKey({
       id: modelId,
       name,
@@ -141,6 +209,8 @@ router.post(
       documentId,
       teamId: user.teamId,
       userId: user.id,
+      isPersonal: personal ?? false,
+      parentAttachmentId: personal ? parentId ?? null : null,
     });
 
     const usePut = env.AWS_S3_UPLOAD_METHOD === "put";
@@ -195,6 +265,35 @@ router.post(
         },
       };
     }
+  }
+);
+
+router.post(
+  "attachments.createFolder",
+  auth(),
+  validate(T.AttachmentsCreateFolderSchema),
+  transaction(),
+  async (ctx: APIContext<T.AttachmentCreateFolderReq>) => {
+    const { name, parentId } = ctx.input.body;
+    const { user } = ctx.state.auth;
+    authorize(user, "createAttachment", user.team);
+    await assertPersonalFolder(ctx, parentId);
+
+    const id = randomUUID();
+    const attachment = await Attachment.createWithCtx(ctx, {
+      id,
+      key: AttachmentHelper.getKey({ id, name, userId: user.id }),
+      acl: "private",
+      size: 0,
+      contentType: "application/x-outline-folder",
+      teamId: user.teamId,
+      userId: user.id,
+      isPersonal: true,
+      isFolder: true,
+      parentAttachmentId: parentId ?? null,
+    });
+
+    ctx.body = { data: presentAttachment(attachment) };
   }
 );
 
@@ -284,6 +383,15 @@ router.post(
       transaction,
     });
 
+    if (attachment.isPersonal) {
+      if (attachment.userId !== user.id) {
+        throw AuthorizationError();
+      }
+      await destroyPersonalAttachment(ctx, attachment);
+      ctx.body = { success: true };
+      return;
+    }
+
     if (attachment.documentId) {
       const document = await Document.findByPk(attachment.documentId, {
         userId: user.id,
@@ -311,12 +419,17 @@ const handleAttachmentsRedirect = async (
     rejectOnEmpty: true,
   });
 
-  // Private attachments are accessible to any member of the workspace they
+  // Personal files are accessible only to their owner. Other private
+  // attachments are accessible to any member of the workspace they
   // belong to. This is intentional and not a permission bypass – attachments
   // are owned by the workspace (team), not by individual documents. Checking
   // document-level permissions here would be insufficient anyway as attachments
   // can exist independently of documents.
-  if (attachment.isPrivate && attachment.teamId !== user?.teamId) {
+  if (
+    attachment.isPersonal
+      ? attachment.userId !== user?.id
+      : attachment.isPrivate && attachment.teamId !== user?.teamId
+  ) {
     throw AuthorizationError();
   }
 

@@ -9,5 +9,8 @@ export default function presentAttachment(attachment: Attachment) {
     id: attachment.id,
     url: attachment.url,
     size: attachment.size,
+    isFolder: attachment.isFolder,
+    parentId: attachment.parentAttachmentId,
+    createdAt: attachment.createdAt,
   };
 }

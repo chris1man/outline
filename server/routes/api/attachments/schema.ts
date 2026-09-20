@@ -9,6 +9,10 @@ export const AttachmentsListSchema = BaseSchema.extend({
     documentId: z.uuid().optional(),
     /** Id of the user that uploaded the Attachment */
     userId: z.uuid().optional(),
+    /** List files from the current user's personal file space. */
+    personal: z.boolean().optional(),
+    /** Id of the personal folder to list. */
+    parentId: z.uuid().nullable().optional(),
   }),
 });
 
@@ -25,6 +29,12 @@ export const AttachmentsCreateSchema = BaseSchema.extend({
     /** Id of the document to which the Attachment belongs */
     documentId: z.uuid().optional(),
 
+    /** Store the file in the current user's personal file space. */
+    personal: z.boolean().optional(),
+
+    /** Id of the personal folder to store the file in. */
+    parentId: z.uuid().nullable().optional(),
+
     /** File size of the Attachment */
     size: z.number().int().nonnegative(),
 
@@ -39,6 +49,19 @@ export const AttachmentsCreateSchema = BaseSchema.extend({
 });
 
 export type AttachmentCreateReq = z.infer<typeof AttachmentsCreateSchema>;
+
+export const AttachmentsCreateFolderSchema = BaseSchema.extend({
+  body: z.object({
+    /** Folder name */
+    name: z.string().trim().min(1).max(255),
+    /** Parent folder ID, or root when omitted */
+    parentId: z.uuid().nullable().optional(),
+  }),
+});
+
+export type AttachmentCreateFolderReq = z.infer<
+  typeof AttachmentsCreateFolderSchema
+>;
 
 export const AttachmentsCreateFromUrlSchema = BaseSchema.extend({
   body: z.object({
