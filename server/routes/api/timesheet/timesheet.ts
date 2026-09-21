@@ -67,6 +67,7 @@ router.post(
     let entry = id
       ? await TimesheetEntry.findByPk(id, { transaction: dbTransaction, lock: Transaction.LOCK.UPDATE })
       : undefined;
+    let created = false;
     if (entry) {
       authorize(user, "update", entry);
     } else {
@@ -81,13 +82,24 @@ router.post(
         lock: Transaction.LOCK.UPDATE,
       });
       if (entry) authorize(user, "update", entry);
-      else entry = await TimesheetEntry.createWithCtx(ctx, { teamId: user.teamId, userId, date, hours, comment });
+      else {
+        entry = await TimesheetEntry.createWithCtx(ctx, {
+          teamId: user.teamId,
+          userId,
+          date,
+          hours,
+          comment,
+        });
+        created = true;
+      }
     }
 
     if (entry.userId !== targetUserId(user, ctx.input.body.userId) && ctx.input.body.userId) {
       throw ValidationError("userId cannot be changed");
     }
-    await entry.updateWithCtx(ctx, { date, hours, comment });
+    if (!created) {
+      await entry.updateWithCtx(ctx, { date, hours, comment });
+    }
     await entry.reload({ include: [{ model: User, as: "user", paranoid: false }] });
     ctx.body = { data: presentTimesheetEntry(entry), policies: presentPolicies(user, [entry]) };
   }
