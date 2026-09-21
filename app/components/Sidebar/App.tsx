@@ -30,6 +30,7 @@ import DraggableSection, {
 } from "./components/DraggableSection";
 import { DraftsLink } from "./components/DraftsLink";
 import { PersonalLink } from "./components/PersonalLink";
+import { TimesheetLink } from "./components/TimesheetLink";
 import DragPlaceholder from "./components/DragPlaceholder";
 import { DismissableSidebarAction } from "./components/DismissableSidebarAction";
 import HistoryNavigation from "./components/HistoryNavigation";
@@ -139,6 +140,7 @@ function AppSidebar() {
             />
             {can.createDocument && <PersonalLink />}
             {can.createDocument && <DraftsLink />}
+            {!user.isGuest && !user.isViewer && <TimesheetLink />}
           </Section>
         </Overflow>
         <Scrollable flex shadow ref={scrollRef}>

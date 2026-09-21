@@ -38,6 +38,10 @@ export function personalPath(): string {
   return "/personal";
 }
 
+export function timesheetPath(): string {
+  return "/timesheet";
+}
+
 /**
  * Returns the path to the archive screen.
  *

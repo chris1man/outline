@@ -54,6 +54,7 @@ import userMemberships from "./userMemberships";
 import users from "./users";
 import views from "./views";
 import accessRequests from "./accessRequests";
+import timesheet from "./timesheet/timesheet";
 
 const api = new Koa<AppState, AppContext>();
 const router = new Router();
@@ -124,6 +125,7 @@ router.use("/", userMemberships.routes());
 router.use("/", reactions.routes());
 router.use("/", relationships.routes());
 router.use("/", imports.routes());
+router.use("/", timesheet.routes());
 
 if (!env.isCloudHosted) {
   router.use("/", installation.routes());

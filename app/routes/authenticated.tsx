@@ -11,6 +11,7 @@ import Route from "~/components/ProfiledRoute";
 import { SplitView } from "~/components/SplitView";
 import WebsocketProvider from "~/components/WebsocketProvider";
 import useCurrentTeam from "~/hooks/useCurrentTeam";
+import useCurrentUser from "~/hooks/useCurrentUser";
 import usePolicy from "~/hooks/usePolicy";
 import useQueryNotices from "~/hooks/useQueryNotices";
 import useKeyboardShortcutsQuery from "~/hooks/useKeyboardShortcutsQuery";
@@ -20,6 +21,7 @@ import {
   archivePath,
   draftsPath,
   personalPath,
+  timesheetPath,
   homePath,
   searchPath,
   settingsPath,
@@ -54,6 +56,7 @@ function AuthenticatedRoutes() {
   useQueryNotices();
   useKeyboardShortcutsQuery();
   const team = useCurrentTeam();
+  const user = useCurrentUser();
   const can = usePolicy(team);
 
   return (
@@ -68,6 +71,13 @@ function AuthenticatedRoutes() {
         >
           <SplitView>
             <Switch>
+              {!user.isGuest && !user.isViewer && (
+                <Route
+                  exact
+                  path={timesheetPath()}
+                  component={Scenes.Timesheet.Component}
+                />
+              )}
               {can.createDocument && (
                 <Route
                   exact
