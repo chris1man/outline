@@ -10,6 +10,16 @@ import { getTestServer } from "@server/test/support";
 const server = getTestServer();
 
 describe("timesheet access", () => {
+  it("allows an employee to create their own entry", async () => {
+    const user = await buildUser();
+
+    const response = await server.post("/api/timesheet.upsert", user, {
+      body: { date: "2026-09-01", hours: 8, comment: "Работа" },
+    });
+
+    expect(response.status).toEqual(200);
+  });
+
   it("does not allow an employee to list another employee's entries", async () => {
     const user = await buildUser();
     const anotherUser = await buildUser({ teamId: user.teamId });

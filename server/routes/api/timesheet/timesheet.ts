@@ -100,7 +100,10 @@ router.post(
     if (!created) {
       await entry.updateWithCtx(ctx, { date, hours, comment });
     }
-    await entry.reload({ include: [{ model: User, as: "user", paranoid: false }] });
+    await entry.reload({
+      include: [{ model: User, as: "user", paranoid: false }],
+      transaction: dbTransaction,
+    });
     ctx.body = { data: presentTimesheetEntry(entry), policies: presentPolicies(user, [entry]) };
   }
 );
