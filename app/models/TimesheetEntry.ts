@@ -26,6 +26,8 @@ class TimesheetEntry extends Model {
   comment: string;
   @Field userId: string;
   @Field userName?: string;
+  @Field userAvatarUrl?: string | null;
+  @Field userRole?: string;
 }
 
 export default TimesheetEntry;

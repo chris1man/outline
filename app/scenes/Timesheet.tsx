@@ -3,6 +3,7 @@ import { observer } from "mobx-react";
 import * as React from "react";
 import { toast } from "sonner";
 import styled from "styled-components";
+import Avatar, { AvatarSize } from "~/components/Avatar";
 import Button from "~/components/Button";
 import Empty from "~/components/Empty";
 import Heading from "~/components/Heading";
@@ -30,9 +31,9 @@ const localDate = () => {
 const currentMonth = () => localDate().slice(0, 7);
 const initialForm = (): Form => ({ date: localDate(), hours: "8", comment: "" });
 const formatMonth = (month: string) =>
-  new Intl.DateTimeFormat("ru-RU", { month: "long", year: "numeric" }).format(
-    new Date(`${month}-01T12:00:00`)
-  );
+  new Intl.DateTimeFormat("ru-RU", { month: "long", year: "numeric" })
+    .format(new Date(`${month}-01T12:00:00`))
+    .replace(" г.", "");
 const formatDate = (date: string) =>
   new Intl.DateTimeFormat("ru-RU", {
     day: "numeric",
@@ -70,17 +71,28 @@ function Timesheet() {
   const employees = Array.from(
     new Map(allEntries.map((entry) => [entry.userId, entry.userName ?? entry.userId])).entries()
   );
-  const totals = entries.reduce<Record<string, { name: string; hours: number }>>(
+  const totals = entries.reduce<Record<string, {
+    name: string;
+    hours: number;
+    avatarUrl?: string | null;
+    role?: string;
+  }>>(
     (result, entry) => {
       const item = result[entry.userId] ?? {
         name: entry.userName ?? entry.userId,
         hours: 0,
+        avatarUrl: entry.userAvatarUrl,
+        role: entry.userRole,
       };
       item.hours += Number(entry.hours);
       result[entry.userId] = item;
       return result;
     },
     {}
+  );
+  const maximumHours = Math.max(
+    1,
+    ...Object.values(totals).map((entry) => entry.hours)
   );
   const selectedEntries = entries.filter((entry) => entry.date === selectedDate);
 
@@ -218,8 +230,25 @@ function Timesheet() {
                 .sort(([, left], [, right]) => right.hours - left.hours)
                 .map(([id, value]) => (
                   <TeamTotal key={id}>
-                    <span>{value.name}</span>
-                    <strong>{value.hours.toFixed(2)} ч</strong>
+                    <Avatar
+                      model={{
+                        id,
+                        name: value.name,
+                        avatarUrl: value.avatarUrl ?? null,
+                      }}
+                      size={AvatarSize.Large}
+                      showHoverCard={false}
+                    />
+                    <PersonMeta>
+                      <strong>{value.name}</strong>
+                      <span>{formatRole(value.role)} · группа не указана</span>
+                    </PersonMeta>
+                    <HoursSummary>
+                      <strong>{value.hours.toFixed(2)} ч</strong>
+                      <ProgressTrack>
+                        <ProgressFill $percent={(value.hours / maximumHours) * 100} />
+                      </ProgressTrack>
+                    </HoursSummary>
                   </TeamTotal>
                 ))}
             </TeamTotals>
@@ -280,7 +309,7 @@ function Timesheet() {
                 <HistoryRow key={entry.id}>
                   <DateCell>{formatDate(entry.date)}</DateCell>
                   <Hours>{entry.hours} ч</Hours>
-                  <Comment>{entry.comment || "Без комментария"}</Comment>
+                  <Comment>{entry.comment || "—"}</Comment>
                   <Actions>
                     <Button icon={<EditIcon />} neutral aria-label="Изменить" onClick={() => edit(entry)} />
                     <Button icon={<TrashIcon />} neutral aria-label="Удалить" onClick={() => void remove(entry)} />
@@ -316,7 +345,7 @@ function EntryForm({ form, setForm, onSave }: { form: Form; setForm: React.Dispa
         <label htmlFor="timesheet-hours">Часы</label>
         <input id="timesheet-hours" type="number" min="0" max="24" step="0.25" inputMode="decimal" value={form.hours} onChange={(event) => setForm({ ...form, hours: event.target.value })} />
       </HoursInput>
-      <CommentInput value={form.comment} placeholder="Добавить комментарий" onChange={(event) => setForm({ ...form, comment: event.target.value })} />
+      <CommentInput value={form.comment} placeholder="Комментарий (необязательно)" onChange={(event) => setForm({ ...form, comment: event.target.value })} />
       <Button onClick={() => void onSave()}>{form.id ? "Сохранить" : "Добавить часы"}</Button>
     </EntryCard>
   );
@@ -376,7 +405,7 @@ function DayDetails({ date, entries }: { date: string; entries: TimesheetEntry[]
       {entries.length ? entries.map((entry) => (
         <DayEntry key={entry.id}>
           <span>{entry.userName ?? 'Сотрудник'}</span>
-          <span>{entry.comment || 'Без комментария'}</span>
+          <span>{entry.comment || '—'}</span>
           <strong>{entry.hours} ч</strong>
         </DayEntry>
       )) : <Empty>За этот день записей нет</Empty>}
@@ -389,7 +418,9 @@ function calendarDays(month: string) {
   const first = new Date(year, monthNumber - 1, 1);
   const offset = (first.getDay() + 6) % 7;
   const start = new Date(year, monthNumber - 1, 1 - offset);
-  return Array.from({ length: 42 }, (_, index) => {
+  const daysInMonth = new Date(year, monthNumber, 0).getDate();
+  const cellCount = Math.ceil((offset + daysInMonth) / 7) * 7;
+  return Array.from({ length: cellCount }, (_, index) => {
     const date = new Date(start);
     date.setDate(start.getDate() + index);
     return toDateString(date);
@@ -413,12 +444,28 @@ const formatFullDate = (date: string) => new Intl.DateTimeFormat("ru-RU", {
   weekday: "long",
 }).format(new Date(`${date}T12:00:00`));
 
+const formatRole = (role?: string) => {
+  switch (role) {
+    case "admin":
+      return "Администратор";
+    case "member":
+      return "Сотрудник";
+    case "viewer":
+      return "Наблюдатель";
+    case "guest":
+      return "Гость";
+    default:
+      return "Сотрудник";
+  }
+};
+
 const Topbar = styled.header`
   display: grid;
   grid-template-columns: 1fr auto 1fr;
   align-items: center;
   gap: 24px;
-  margin-bottom: 8px;
+  margin-bottom: 14px;
+  padding: 10px 0;
 
   > button {
     justify-self: end;
@@ -435,7 +482,7 @@ const Topbar = styled.header`
 `;
 
 const TitleGroup = styled.div`
-  h1 { margin: 0; }
+  h1 { margin: 0; font-size: 40px; letter-spacing: -0.04em; }
 `;
 
 const Eyebrow = styled.div`
@@ -490,15 +537,44 @@ const TeamTotals = styled.div`
 `;
 
 const TeamTotal = styled.div`
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr) 76px;
+  align-items: center;
+  gap: 8px;
   padding: 10px 0;
   border-bottom: 1px solid ${(props) => props.theme.inputBorder};
-  font-size: 13px;
+`;
 
-  span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  strong { white-space: nowrap; }
+const PersonMeta = styled.div`
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+
+  strong, span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  strong { font-size: 12px; }
+  span { color: ${(props) => props.theme.textTertiary}; font-size: 10px; }
+`;
+
+const HoursSummary = styled.div`
+  display: grid;
+  gap: 4px;
+  text-align: right;
+
+  strong { font-size: 11px; white-space: nowrap; }
+`;
+
+const ProgressTrack = styled.div`
+  height: 4px;
+  overflow: hidden;
+  border-radius: 4px;
+  background: ${(props) => props.theme.inputBorder};
+`;
+
+const ProgressFill = styled.div<{ $percent: number }>`
+  width: ${(props) => props.$percent}%;
+  height: 100%;
+  border-radius: inherit;
+  background: ${(props) => props.theme.accent};
 `;
 
 const CalendarPanel = styled.section`
@@ -567,7 +643,7 @@ const CalendarDay = styled.button`
   display: grid;
   align-content: start;
   gap: 5px;
-  min-height: 84px;
+  min-height: 64px;
   padding: 8px;
   border: 0;
   border-right: 1px solid ${(props) => props.theme.inputBorder};
@@ -611,10 +687,10 @@ const DayEntry = styled.div`
 
 const Months = styled.nav`
   display: flex; align-items: center; justify-content: center; gap: 16px; margin: 0;
-  button { border: 0; background: none; color: ${(props) => props.theme.textTertiary}; cursor: var(--pointer); filter: blur(.4px); font-size: 14px; opacity: .7; text-transform: capitalize; }
+  button { border: 0; background: none; color: ${(props) => props.theme.textTertiary}; cursor: var(--pointer); filter: blur(.4px); font-size: 14px; opacity: .6; text-transform: capitalize; }
 `;
 const MonthCurrent = styled.strong`
-  min-width: 145px; text-align: center; font-size: 18px; text-transform: capitalize;
+  min-width: 175px; text-align: center; font-size: 20px; text-transform: capitalize;
 `;
 const EntryCard = styled.section`
   display: grid; grid-template-columns: auto minmax(112px, 160px) minmax(160px, 1fr) auto; align-items: end; gap: 12px; padding: 16px; border: 1px solid ${(props) => props.theme.inputBorder}; border-radius: 10px; background: ${(props) => props.theme.backgroundSecondary};

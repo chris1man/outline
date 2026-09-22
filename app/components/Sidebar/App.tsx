@@ -20,7 +20,6 @@ import useStores from "~/hooks/useStores";
 import TeamMenu from "~/menus/TeamMenu";
 import * as Scenes from "~/routes/scenes";
 import { homePath, searchPath } from "~/utils/routeHelpers";
-import TeamLogo from "../TeamLogo";
 import Tooltip from "../Tooltip";
 import Sidebar from "./Sidebar";
 import ArchiveLink from "./components/ArchiveLink";
@@ -95,13 +94,8 @@ function AppSidebar() {
 
         <TeamMenu>
           <SidebarButton
-            title={
-              <BrandTitle>
-                <strong>MAKI</strong>
-                <span>База знаний</span>
-              </BrandTitle>
-            }
-            image={<TeamLogo model={team} size={24} alt={t("Logo")} />}
+            title={<BrandTitle>База знаний</BrandTitle>}
+            image={<BrandWordmark>MAKI</BrandWordmark>}
           >
             {isMobile ? null : (
               <Tooltip
@@ -185,21 +179,17 @@ const Overflow = styled.div`
 `;
 
 const BrandTitle = styled.span`
-  display: flex;
-  align-items: baseline;
-  gap: 7px;
+  color: ${(props) => props.theme.textSecondary};
+  font-size: 12px;
+  font-weight: 500;
+`;
 
-  strong {
-    color: ${(props) => props.theme.accent};
-    font-size: 15px;
-    letter-spacing: 0.06em;
-  }
-
-  span {
-    color: ${(props) => props.theme.textSecondary};
-    font-size: 12px;
-    font-weight: 500;
-  }
+const BrandWordmark = styled.span`
+  color: ${(props) => props.theme.accent};
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: -0.06em;
 `;
 
 export default observer(AppSidebar);
