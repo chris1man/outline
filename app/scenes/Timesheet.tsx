@@ -46,11 +46,21 @@ function Timesheet() {
   const [month, setMonth] = React.useState(currentMonth);
   const [all, setAll] = React.useState(false);
   const [employeeId, setEmployeeId] = React.useState<string>();
+  const [adminView, setAdminView] = React.useState<"calendar" | "list">(
+    "calendar"
+  );
+  const [selectedDate, setSelectedDate] = React.useState(localDate);
   const [form, setForm] = React.useState<Form>(initialForm);
 
   React.useEffect(() => {
     void timesheetEntries.fetchMonth(month, all ? { all: true } : {});
   }, [all, month, timesheetEntries]);
+
+  React.useEffect(() => {
+    if (!selectedDate.startsWith(month)) {
+      setSelectedDate(`${month}-01`);
+    }
+  }, [month, selectedDate]);
 
   const allEntries = timesheetEntries.orderedData;
   const entries = all && employeeId
@@ -72,6 +82,14 @@ function Timesheet() {
     },
     {}
   );
+  const selectedEntries = entries.filter((entry) => entry.date === selectedDate);
+
+  const startEntry = () => {
+    setAll(false);
+    window.requestAnimationFrame(() =>
+      document.getElementById("timesheet-hours")?.focus()
+    );
+  };
 
   const save = async () => {
     try {
@@ -163,7 +181,14 @@ function Timesheet() {
 
   return (
     <Scene icon={<NotepadIcon />} title="Табель" wide>
-      <Heading>Табель</Heading>
+      <Topbar>
+        <TitleGroup>
+          <Eyebrow>Учет времени</Eyebrow>
+          <Heading>Табель</Heading>
+        </TitleGroup>
+        <MonthNavigation month={month} onChange={setMonth} />
+        <Button onClick={startEntry}>Добавить часы</Button>
+      </Topbar>
       {user.isAdmin && (
         <Tabs>
           <Tab active={!all} onClick={() => { setAll(false); setEmployeeId(undefined); }}>
@@ -172,20 +197,79 @@ function Timesheet() {
           <Tab active={all} onClick={() => setAll(true)}>Все сотрудники</Tab>
         </Tabs>
       )}
-      <MonthNavigation month={month} onChange={setMonth} />
       {all ? (
-        <>
-          <AdminControls>
-            <select value={employeeId ?? ""} onChange={(event) => setEmployeeId(event.target.value || undefined)}>
+        <AdminLayout>
+          <TeamPanel>
+            <TeamPanelHeading>
+              <span>Команда</span>
+              <strong>{total.toFixed(2)} ч</strong>
+            </TeamPanelHeading>
+            <select
+              value={employeeId ?? ""}
+              onChange={(event) => setEmployeeId(event.target.value || undefined)}
+            >
               <option value="">Все сотрудники</option>
-              {employees.map(([id, name]) => <option key={id} value={id}>{name}</option>)}
+              {employees.map(([id, name]) => (
+                <option key={id} value={id}>{name}</option>
+              ))}
             </select>
-            <strong>Всего: {total.toFixed(2)} ч</strong>
-          </AdminControls>
-          <Totals>{Object.entries(totals).map(([id, value]) => <span key={id}>{value.name}: <b>{value.hours.toFixed(2)} ч</b></span>)}</Totals>
-          {form.id && <EntryForm form={form} setForm={setForm} onSave={save} />}
-          {!timesheetEntries.isFetching && entries.length === 0 ? <Empty>За этот месяц записей нет</Empty> : <Table data={entries} columns={columns} sort={{ id: "date", desc: true }} onChangeSort={() => undefined} loading={timesheetEntries.isFetching} page={{ hasNext: false }} rowHeight={52} />}
-        </>
+            <TeamTotals>
+              {Object.entries(totals)
+                .sort(([, left], [, right]) => right.hours - left.hours)
+                .map(([id, value]) => (
+                  <TeamTotal key={id}>
+                    <span>{value.name}</span>
+                    <strong>{value.hours.toFixed(2)} ч</strong>
+                  </TeamTotal>
+                ))}
+            </TeamTotals>
+          </TeamPanel>
+          <CalendarPanel>
+            <CalendarHeading>
+              <div>
+                <span>Календарь</span>
+                <strong>{employeeId ? "Сотрудник" : "Все сотрудники"}</strong>
+              </div>
+              <ViewSwitch>
+                <button
+                  data-active={adminView === "calendar"}
+                  onClick={() => setAdminView("calendar")}
+                >
+                  Календарь
+                </button>
+                <button
+                  data-active={adminView === "list"}
+                  onClick={() => setAdminView("list")}
+                >
+                  Список
+                </button>
+              </ViewSwitch>
+            </CalendarHeading>
+            {adminView === "calendar" ? (
+              <>
+                <TimesheetCalendar
+                  month={month}
+                  entries={entries}
+                  selectedDate={selectedDate}
+                  onSelect={setSelectedDate}
+                />
+                <DayDetails date={selectedDate} entries={selectedEntries} />
+              </>
+            ) : !timesheetEntries.isFetching && entries.length === 0 ? (
+              <Empty>За этот месяц записей нет</Empty>
+            ) : (
+              <Table
+                data={entries}
+                columns={columns}
+                sort={{ id: "date", desc: true }}
+                onChangeSort={() => undefined}
+                loading={timesheetEntries.isFetching}
+                page={{ hasNext: false }}
+                rowHeight={52}
+              />
+            )}
+          </CalendarPanel>
+        </AdminLayout>
       ) : (
         <>
           <EntryForm form={form} setForm={setForm} onSave={save} />
@@ -238,14 +322,295 @@ function EntryForm({ form, setForm, onSave }: { form: Form; setForm: React.Dispa
   );
 }
 
+function TimesheetCalendar({
+  month,
+  entries,
+  selectedDate,
+  onSelect,
+}: {
+  month: string;
+  entries: TimesheetEntry[];
+  selectedDate: string;
+  onSelect: (date: string) => void;
+}) {
+  const entriesByDate = entries.reduce<Record<string, TimesheetEntry[]>>(
+    (result, entry) => {
+      (result[entry.date] ??= []).push(entry);
+      return result;
+    },
+    {}
+  );
+
+  return (
+    <Calendar>
+      {['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'].map((day) => <CalendarWeekday key={day}>{day}</CalendarWeekday>)}
+      {calendarDays(month).map((date) => {
+        const dayEntries = entriesByDate[date] ?? [];
+        const hours = dayEntries.reduce((sum, entry) => sum + Number(entry.hours), 0);
+        return (
+          <CalendarDay
+            key={date}
+            data-current={date.startsWith(month)}
+            data-selected={date === selectedDate}
+            data-worked={hours > 0}
+            onClick={() => onSelect(date)}
+          >
+            <span>{Number(date.slice(-2))}</span>
+            {hours > 0 && <strong>{hours.toFixed(2)} ч</strong>}
+            {dayEntries.length > 1 && <small>{dayEntries.length} сотрудников</small>}
+          </CalendarDay>
+        );
+      })}
+    </Calendar>
+  );
+}
+
+function DayDetails({ date, entries }: { date: string; entries: TimesheetEntry[] }) {
+  const total = entries.reduce((sum, entry) => sum + Number(entry.hours), 0);
+  return (
+    <DaySummary>
+      <DaySummaryTitle>
+        <span>{formatFullDate(date)}</span>
+        <strong>{total.toFixed(2)} ч</strong>
+      </DaySummaryTitle>
+      {entries.length ? entries.map((entry) => (
+        <DayEntry key={entry.id}>
+          <span>{entry.userName ?? 'Сотрудник'}</span>
+          <span>{entry.comment || 'Без комментария'}</span>
+          <strong>{entry.hours} ч</strong>
+        </DayEntry>
+      )) : <Empty>За этот день записей нет</Empty>}
+    </DaySummary>
+  );
+}
+
+function calendarDays(month: string) {
+  const [year, monthNumber] = month.split("-").map(Number);
+  const first = new Date(year, monthNumber - 1, 1);
+  const offset = (first.getDay() + 6) % 7;
+  const start = new Date(year, monthNumber - 1, 1 - offset);
+  return Array.from({ length: 42 }, (_, index) => {
+    const date = new Date(start);
+    date.setDate(start.getDate() + index);
+    return toDateString(date);
+  });
+}
+
+function toDateString(date: Date) {
+  return [date.getFullYear(), String(date.getMonth() + 1).padStart(2, "0"), String(date.getDate()).padStart(2, "0")].join("-");
+}
+
 const shiftMonth = (month: string, amount: number) => {
   const date = new Date(`${month}-01T12:00:00`);
   date.setMonth(date.getMonth() + amount);
   return date.toISOString().slice(0, 7);
 };
 
+const formatFullDate = (date: string) => new Intl.DateTimeFormat("ru-RU", {
+  day: "numeric",
+  month: "long",
+  year: "numeric",
+  weekday: "long",
+}).format(new Date(`${date}T12:00:00`));
+
+const Topbar = styled.header`
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 24px;
+  margin-bottom: 8px;
+
+  > button {
+    justify-self: end;
+  }
+
+  @media (max-width: 700px) {
+    grid-template-columns: 1fr auto;
+
+    nav {
+      grid-column: 1 / -1;
+      grid-row: 2;
+    }
+  }
+`;
+
+const TitleGroup = styled.div`
+  h1 { margin: 0; }
+`;
+
+const Eyebrow = styled.div`
+  color: ${(props) => props.theme.textTertiary};
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+`;
+
+const AdminLayout = styled.div`
+  display: grid;
+  grid-template-columns: minmax(220px, 280px) minmax(0, 1fr);
+  gap: 18px;
+  margin-top: 16px;
+
+  @media (max-width: 900px) {
+    grid-template-columns: 1fr;
+  }
+`;
+
+const TeamPanel = styled.aside`
+  padding: 16px;
+  border: 1px solid ${(props) => props.theme.inputBorder};
+  border-radius: 10px;
+  background: ${(props) => props.theme.backgroundSecondary};
+
+  select {
+    width: 100%;
+    height: 36px;
+    margin: 16px 0 10px;
+    border: 1px solid ${(props) => props.theme.inputBorder};
+    border-radius: 6px;
+    background: ${(props) => props.theme.background};
+    color: ${(props) => props.theme.text};
+    padding: 0 8px;
+  }
+`;
+
+const TeamPanelHeading = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 16px;
+  font-weight: 600;
+
+  strong { font-size: 20px; }
+`;
+
+const TeamTotals = styled.div`
+  display: grid;
+`;
+
+const TeamTotal = styled.div`
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid ${(props) => props.theme.inputBorder};
+  font-size: 13px;
+
+  span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  strong { white-space: nowrap; }
+`;
+
+const CalendarPanel = styled.section`
+  min-width: 0;
+  padding: 16px;
+  border: 1px solid ${(props) => props.theme.inputBorder};
+  border-radius: 10px;
+`;
+
+const CalendarHeading = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+
+  div:first-child {
+    display: grid;
+    gap: 2px;
+    color: ${(props) => props.theme.textTertiary};
+    font-size: 12px;
+  }
+
+  strong { color: ${(props) => props.theme.text}; font-size: 16px; }
+`;
+
+const ViewSwitch = styled.div`
+  display: flex;
+  padding: 3px;
+  border: 1px solid ${(props) => props.theme.inputBorder};
+  border-radius: 7px;
+
+  button {
+    border: 0;
+    border-radius: 4px;
+    background: transparent;
+    color: ${(props) => props.theme.textSecondary};
+    cursor: var(--pointer);
+    font-size: 12px;
+    padding: 6px 10px;
+
+    &[data-active="true"] {
+      background: ${(props) => props.theme.accent};
+      color: ${(props) => props.theme.accentText};
+    }
+  }
+`;
+
+const Calendar = styled.div`
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  border-top: 1px solid ${(props) => props.theme.inputBorder};
+  border-left: 1px solid ${(props) => props.theme.inputBorder};
+`;
+
+const CalendarWeekday = styled.div`
+  padding: 8px;
+  border-right: 1px solid ${(props) => props.theme.inputBorder};
+  border-bottom: 1px solid ${(props) => props.theme.inputBorder};
+  color: ${(props) => props.theme.textTertiary};
+  font-size: 11px;
+  text-align: center;
+`;
+
+const CalendarDay = styled.button`
+  display: grid;
+  align-content: start;
+  gap: 5px;
+  min-height: 84px;
+  padding: 8px;
+  border: 0;
+  border-right: 1px solid ${(props) => props.theme.inputBorder};
+  border-bottom: 1px solid ${(props) => props.theme.inputBorder};
+  background: ${(props) => props.theme.background};
+  color: ${(props) => props.theme.text};
+  cursor: var(--pointer);
+  text-align: left;
+
+  &[data-current="false"] { color: ${(props) => props.theme.textTertiary}; opacity: .55; }
+  &[data-worked="true"] { background: ${(props) => props.theme.backgroundSecondary}; }
+  &[data-selected="true"] { box-shadow: inset 0 0 0 2px ${(props) => props.theme.accent}; }
+  strong { font-size: 14px; }
+  small { font-size: 10px; }
+`;
+
+const DaySummary = styled.div`
+  margin-top: 14px;
+  border-top: 1px solid ${(props) => props.theme.inputBorder};
+`;
+
+const DaySummaryTitle = styled.div`
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 0;
+  font-size: 14px;
+  text-transform: capitalize;
+`;
+
+const DayEntry = styled.div`
+  display: grid;
+  grid-template-columns: minmax(120px, .7fr) minmax(0, 1.5fr) auto;
+  gap: 12px;
+  padding: 9px 0;
+  border-top: 1px solid ${(props) => props.theme.inputBorder};
+  font-size: 13px;
+
+  span:nth-child(2) { color: ${(props) => props.theme.textSecondary}; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+`;
+
 const Months = styled.nav`
-  display: flex; align-items: center; justify-content: center; gap: 16px; margin: 22px 0;
+  display: flex; align-items: center; justify-content: center; gap: 16px; margin: 0;
   button { border: 0; background: none; color: ${(props) => props.theme.textTertiary}; cursor: var(--pointer); filter: blur(.4px); font-size: 14px; opacity: .7; text-transform: capitalize; }
 `;
 const MonthCurrent = styled.strong`
@@ -280,11 +645,4 @@ const DateCell = styled.span`font-size: 13px; text-transform: capitalize;`;
 const Hours = styled.strong`font-size: 13px;`;
 const Comment = styled.span`overflow: hidden; color: ${(props) => props.theme.textSecondary}; font-size: 13px; text-overflow: ellipsis; white-space: nowrap;`;
 const Actions = styled.span`display: flex; gap: 2px;`;
-const AdminControls = styled.div`
-  display: flex; align-items: center; gap: 12px; margin-bottom: 14px;
-  select { height: 32px; border: 1px solid ${(props) => props.theme.inputBorder}; border-radius: 6px; padding: 0 8px; }
-  strong { margin-left: auto; }
-`;
-const Totals = styled.div`display: flex; flex-wrap: wrap; gap: 16px; margin-bottom: 16px; color: ${(props) => props.theme.textSecondary}; font-size: 13px;`;
-
 export default observer(Timesheet);

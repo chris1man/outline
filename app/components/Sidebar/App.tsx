@@ -95,7 +95,12 @@ function AppSidebar() {
 
         <TeamMenu>
           <SidebarButton
-            title={team.name}
+            title={
+              <BrandTitle>
+                <strong>MAKI</strong>
+                <span>База знаний</span>
+              </BrandTitle>
+            }
             image={<TeamLogo model={team} size={24} alt={t("Logo")} />}
           >
             {isMobile ? null : (
@@ -177,6 +182,24 @@ function AppSidebar() {
 const Overflow = styled.div`
   overflow: hidden;
   flex-shrink: 0;
+`;
+
+const BrandTitle = styled.span`
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+
+  strong {
+    color: ${(props) => props.theme.accent};
+    font-size: 15px;
+    letter-spacing: 0.06em;
+  }
+
+  span {
+    color: ${(props) => props.theme.textSecondary};
+    font-size: 12px;
+    font-weight: 500;
+  }
 `;
 
 export default observer(AppSidebar);
