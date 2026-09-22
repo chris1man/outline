@@ -3,7 +3,7 @@ import { observer } from "mobx-react";
 import * as React from "react";
 import { toast } from "sonner";
 import styled from "styled-components";
-import Avatar, { AvatarSize } from "~/components/Avatar";
+import { Avatar, AvatarSize } from "~/components/Avatar";
 import Button from "~/components/Button";
 import Empty from "~/components/Empty";
 import Heading from "~/components/Heading";
