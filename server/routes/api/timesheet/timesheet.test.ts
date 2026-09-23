@@ -122,4 +122,19 @@ describe("timesheet access", () => {
 
     expect(response.status).toEqual(403);
   });
+
+  it("does not allow an admin to remove a default workplace", async () => {
+    const admin = await buildAdmin();
+    const workplace = await TimesheetWorkplace.create({
+      teamId: admin.teamId,
+      name: "Комс",
+      isDefault: true,
+    });
+
+    const response = await server.post("/api/timesheet.workplace_delete", admin, {
+      body: { id: workplace.id },
+    });
+
+    expect(response.status).toEqual(400);
+  });
 });

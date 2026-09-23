@@ -1,5 +1,5 @@
 import type { InferAttributes, InferCreationAttributes } from "sequelize";
-import { BelongsTo, Column, DataType, ForeignKey, Table } from "sequelize-typescript";
+import { BelongsTo, Column, DataType, Default, ForeignKey, Table } from "sequelize-typescript";
 import Team from "./Team";
 import IdModel from "./base/IdModel";
 
@@ -10,6 +10,10 @@ class TimesheetWorkplace extends IdModel<
 > {
   @Column(DataType.STRING(100))
   name: string;
+
+  @Default(false)
+  @Column(DataType.BOOLEAN)
+  isDefault: boolean;
 
   @BelongsTo(() => Team, "teamId")
   team: Team;

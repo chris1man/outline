@@ -225,7 +225,7 @@ function Timesheet() {
             </TeamTotals>
             <WorkplaceSettings>
               <span>Места работы</span>
-              {timesheetEntries.workplaces.length ? timesheetEntries.workplaces.map((item) => (
+              {timesheetEntries.workplaces.filter((item) => !item.isDefault).length ? timesheetEntries.workplaces.filter((item) => !item.isDefault).map((item) => (
                 <WorkplaceSetting key={item.id}>
                   {item.name}
                   <button aria-label={`Удалить ${item.name}`} onClick={() => void timesheetEntries.deleteWorkplace(item.id)}>×</button>
@@ -294,7 +294,7 @@ function MonthNavigation({ month, onChange }: { month: string; onChange: (month:
   );
 }
 
-function EntryForm({ form, workplaces, setForm, onSave }: { form: Form; workplaces: { id: string; name: string }[]; setForm: React.Dispatch<React.SetStateAction<Form>>; onSave: () => Promise<void> }) {
+function EntryForm({ form, workplaces, setForm, onSave }: { form: Form; workplaces: { id: string; name: string; isDefault: boolean }[]; setForm: React.Dispatch<React.SetStateAction<Form>>; onSave: () => Promise<void> }) {
   return (
     <EntryCard>
       <DateInput>

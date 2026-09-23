@@ -53,7 +53,7 @@ router.post(
       }),
       TimesheetWorkplace.findAll({
         where: { teamId: user.teamId },
-        attributes: ["id", "name"],
+        attributes: ["id", "name", "isDefault"],
         order: [["name", "ASC"]],
       }),
       user.isAdmin
@@ -70,7 +70,11 @@ router.post(
     ctx.body = {
       data: entries.map(presentTimesheetEntry),
       policies: presentPolicies(user, entries),
-      workplaces: workplaces.map((workplace) => ({ id: workplace.id, name: workplace.name })),
+      workplaces: workplaces.map((workplace) => ({
+        id: workplace.id,
+        name: workplace.name,
+        isDefault: workplace.isDefault,
+      })),
       employees: employees.map((employee) => ({
         id: employee.id,
         name: employee.name,
@@ -175,6 +179,9 @@ router.post(
       transaction: ctx.state.transaction,
       rejectOnEmpty: true,
     });
+    if (workplace.isDefault) {
+      throw ValidationError("Default workplaces cannot be deleted");
+    }
     await workplace.destroy({ transaction: ctx.state.transaction });
     ctx.body = { success: true };
   }

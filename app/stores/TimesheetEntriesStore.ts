@@ -7,7 +7,7 @@ import { client } from "~/utils/ApiClient";
 export default class TimesheetEntriesStore extends Store<TimesheetEntry> {
   apiEndpoint = "timesheet";
 
-  @observable workplaces: { id: string; name: string }[] = [];
+  @observable workplaces: { id: string; name: string; isDefault: boolean }[] = [];
   @observable employees: {
     id: string;
     name: string;
