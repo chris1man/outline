@@ -460,7 +460,7 @@ function PersonalLedger({ month, entries, total, form, editingDate, workplaces, 
       <DesktopLedgerColumns>{panel("1–15", firstHalf)}{panel(`16–${dates.length}`, secondHalf)}</DesktopLedgerColumns>
       <MobileLedger>{panel(mobileHalf === "first" ? "1–15" : `16–${dates.length}`, mobileHalf === "first" ? firstHalf : secondHalf)}</MobileLedger>
       <LedgerFooter><Button neutral icon={<PlusIcon />} onClick={onAdd}>Добавить часы</Button></LedgerFooter>
-      <MobileActions><Button neutral icon={<CalendarIcon />} onClick={() => { chooseHalf(defaultMobileHalf(month)); window.requestAnimationFrame(() => scrollToTimesheetDate(localDate())); }}>Сегодня</Button><Button icon={<PlusIcon />} onClick={onAdd}>Добавить часы</Button></MobileActions>
+      <MobileActions data-editing={Boolean(editingDate)}><Button neutral icon={<CalendarIcon />} onClick={() => { chooseHalf(defaultMobileHalf(month)); window.requestAnimationFrame(() => scrollToTimesheetDate(localDate())); }}>Сегодня</Button><Button icon={<PlusIcon />} onClick={onAdd}>Добавить часы</Button></MobileActions>
     </PersonalLedgerWrap>
   );
 }
@@ -1300,6 +1300,7 @@ const MobileActions = styled.div`
 
     > button { min-height: 52px; }
     > button:last-child { justify-content: center; font-size: 15px; }
+    &[data-editing="true"] { display: none; }
   }
 `;
 
