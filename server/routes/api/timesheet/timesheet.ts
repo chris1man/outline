@@ -1,10 +1,11 @@
 import Router from "koa-router";
 import { Op, Transaction } from "sequelize";
+import { UserRole } from "@shared/types";
 import { AuthorizationError, ValidationError } from "@server/errors";
 import auth from "@server/middlewares/authentication";
 import { transaction } from "@server/middlewares/transaction";
 import validate from "@server/middlewares/validate";
-import { TimesheetEntry, User } from "@server/models";
+import { TimesheetEntry, TimesheetWorkplace, User } from "@server/models";
 import { authorize } from "@server/policies";
 import { presentPolicies } from "@server/presenters";
 import presentTimesheetEntry from "@server/presenters/timesheetEntry";
@@ -40,7 +41,8 @@ router.post(
     }
     const userId = all ? requestedUserId : targetUserId(user, requestedUserId);
     const { start, end } = monthRange(ctx.input.body.month);
-    const entries = await TimesheetEntry.findAll({
+    const [entries, workplaces, employees] = await Promise.all([
+      TimesheetEntry.findAll({
       where: {
         teamId: user.teamId,
         ...(userId ? { userId } : {}),
@@ -48,8 +50,34 @@ router.post(
       },
       include: [{ model: User, as: "user", paranoid: false }],
       order: [["date", "DESC"]],
-    });
-    ctx.body = { data: entries.map(presentTimesheetEntry), policies: presentPolicies(user, entries) };
+      }),
+      TimesheetWorkplace.findAll({
+        where: { teamId: user.teamId },
+        attributes: ["id", "name"],
+        order: [["name", "ASC"]],
+      }),
+      user.isAdmin
+        ? User.findAll({
+            where: {
+              teamId: user.teamId,
+              role: { [Op.in]: [UserRole.Admin, UserRole.Member] },
+            },
+            attributes: ["id", "name", "avatarUrl", "role"],
+            order: [["name", "ASC"]],
+          })
+        : Promise.resolve([]),
+    ]);
+    ctx.body = {
+      data: entries.map(presentTimesheetEntry),
+      policies: presentPolicies(user, entries),
+      workplaces: workplaces.map((workplace) => ({ id: workplace.id, name: workplace.name })),
+      employees: employees.map((employee) => ({
+        id: employee.id,
+        name: employee.name,
+        avatarUrl: employee.avatarUrl,
+        role: employee.role,
+      })),
+    };
   }
 );
 
@@ -60,9 +88,16 @@ router.post(
   transaction(),
   async (ctx: APIContext<T.TimesheetUpsertReq>) => {
     const { user } = ctx.state.auth;
-    const { id, date, hours, comment } = ctx.input.body;
+    const { id, date, hours, comment, workplace } = ctx.input.body;
     const { transaction: dbTransaction } = ctx.state;
     authorize(user, "accessTimesheet", user.team);
+    if (workplace) {
+      await TimesheetWorkplace.findOrCreate({
+        where: { teamId: user.teamId, name: workplace },
+        defaults: { teamId: user.teamId, name: workplace },
+        transaction: dbTransaction,
+      });
+    }
 
     let entry = id
       ? await TimesheetEntry.findByPk(id, { transaction: dbTransaction, lock: Transaction.LOCK.UPDATE })
@@ -88,6 +123,7 @@ router.post(
           userId,
           date,
           hours,
+          workplace,
           comment,
         });
         created = true;
@@ -98,7 +134,7 @@ router.post(
       throw ValidationError("userId cannot be changed");
     }
     if (!created) {
-      await entry.updateWithCtx(ctx, { date, hours, comment });
+      await entry.updateWithCtx(ctx, { date, hours, workplace, comment });
     }
     await entry.reload({
       include: [{ model: User, as: "user", paranoid: false }],
@@ -119,6 +155,27 @@ router.post(
     const entry = await TimesheetEntry.findByPk(ctx.input.body.id, { transaction: ctx.state.transaction, rejectOnEmpty: true });
     authorize(user, "delete", entry);
     await entry.destroyWithCtx(ctx);
+    ctx.body = { success: true };
+  }
+);
+
+router.post(
+  "timesheet.workplace_delete",
+  auth(),
+  validate(T.TimesheetWorkplaceDeleteSchema),
+  transaction(),
+  async (ctx: APIContext<T.TimesheetWorkplaceDeleteReq>) => {
+    const { user } = ctx.state.auth;
+    authorize(user, "accessTimesheet", user.team);
+    if (!user.isAdmin) {
+      throw AuthorizationError();
+    }
+    const workplace = await TimesheetWorkplace.findOne({
+      where: { id: ctx.input.body.id, teamId: user.teamId },
+      transaction: ctx.state.transaction,
+      rejectOnEmpty: true,
+    });
+    await workplace.destroy({ transaction: ctx.state.transaction });
     ctx.body = { success: true };
   }
 );

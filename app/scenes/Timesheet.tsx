@@ -8,7 +8,6 @@ import Button from "~/components/Button";
 import Empty from "~/components/Empty";
 import Heading from "~/components/Heading";
 import Scene from "~/components/Scene";
-import Table, { type Column as TableColumn } from "~/components/Table";
 import { Tab, Tabs } from "~/components/Tabs";
 import useCurrentUser from "~/hooks/useCurrentUser";
 import useStores from "~/hooks/useStores";
@@ -19,6 +18,7 @@ type Form = {
   userId?: string;
   date: string;
   hours: string;
+  workplace: string;
   comment: string;
 };
 
@@ -29,7 +29,12 @@ const localDate = () => {
     .slice(0, 10);
 };
 const currentMonth = () => localDate().slice(0, 7);
-const initialForm = (): Form => ({ date: localDate(), hours: "8", comment: "" });
+const initialForm = (): Form => ({
+  date: localDate(),
+  hours: "8",
+  workplace: "",
+  comment: "",
+});
 const formatMonth = (month: string) =>
   new Intl.DateTimeFormat("ru-RU", { month: "long", year: "numeric" })
     .format(new Date(`${month}-01T12:00:00`))
@@ -47,6 +52,7 @@ function Timesheet() {
   const [month, setMonth] = React.useState(currentMonth);
   const [all, setAll] = React.useState(false);
   const [employeeId, setEmployeeId] = React.useState<string>();
+  const [workplace, setWorkplace] = React.useState<string>();
   const [adminView, setAdminView] = React.useState<"calendar" | "list">(
     "calendar"
   );
@@ -64,32 +70,36 @@ function Timesheet() {
   }, [month, selectedDate]);
 
   const allEntries = timesheetEntries.orderedData;
-  const entries = all && employeeId
-    ? allEntries.filter((entry) => entry.userId === employeeId)
-    : allEntries;
-  const total = entries.reduce((sum, entry) => sum + Number(entry.hours), 0);
-  const employees = Array.from(
-    new Map(allEntries.map((entry) => [entry.userId, entry.userName ?? entry.userId])).entries()
+  const entries = allEntries.filter(
+    (entry) =>
+      (!all || !employeeId || entry.userId === employeeId) &&
+      (!workplace || entry.workplace === workplace)
   );
-  const totals = entries.reduce<Record<string, {
+  const total = entries.reduce((sum, entry) => sum + Number(entry.hours), 0);
+  const totals = timesheetEntries.employees.reduce<Record<string, {
     name: string;
     hours: number;
     avatarUrl?: string | null;
     role?: string;
-  }>>(
-    (result, entry) => {
-      const item = result[entry.userId] ?? {
-        name: entry.userName ?? entry.userId,
+  }>>((result, employee) => {
+      result[employee.id] = {
+        name: employee.name,
         hours: 0,
-        avatarUrl: entry.userAvatarUrl,
-        role: entry.userRole,
+        avatarUrl: employee.avatarUrl,
+        role: employee.role,
       };
-      item.hours += Number(entry.hours);
-      result[entry.userId] = item;
       return result;
-    },
-    {}
-  );
+    }, {});
+  entries.forEach((entry) => {
+    const item = totals[entry.userId] ?? {
+      name: entry.userName ?? entry.userId,
+      hours: 0,
+      avatarUrl: entry.userAvatarUrl,
+      role: entry.userRole,
+    };
+    item.hours += Number(entry.hours);
+    totals[entry.userId] = item;
+  });
   const maximumHours = Math.max(
     1,
     ...Object.values(totals).map((entry) => entry.hours)
@@ -110,8 +120,10 @@ function Timesheet() {
         userId: form.userId,
         date: form.date,
         hours: Number(form.hours),
+        workplace: form.workplace,
         comment: form.comment,
       });
+      await timesheetEntries.fetchMonth(month, all ? { all: true } : {});
       toast.success("Запись сохранена");
       setForm({
         ...initialForm(),
@@ -128,6 +140,7 @@ function Timesheet() {
       userId: entry.userId,
       date: entry.date,
       hours: String(entry.hours),
+      workplace: entry.workplace,
       comment: entry.comment,
     });
 
@@ -142,55 +155,6 @@ function Timesheet() {
     }
   };
 
-  const columns = React.useMemo<TableColumn<TimesheetEntry>[]>(
-    () => [
-      ...(all
-        ? [
-            {
-              id: "user",
-              header: "Сотрудник",
-              accessor: (entry: TimesheetEntry) => entry.userName ?? "",
-              component: (entry: TimesheetEntry) => entry.userName ?? "—",
-              width: "180px",
-            } as TableColumn<TimesheetEntry>,
-          ]
-        : []),
-      {
-        id: "date",
-        header: "Дата",
-        accessor: (entry) => entry.date,
-        component: (entry) => formatDate(entry.date),
-        width: "180px",
-      },
-      {
-        id: "hours",
-        header: "Часы",
-        accessor: (entry) => entry.hours,
-        component: (entry) => `${entry.hours} ч`,
-        width: "100px",
-      },
-      {
-        id: "comment",
-        header: "Комментарий",
-        accessor: (entry) => entry.comment,
-        component: (entry) => entry.comment || "—",
-        width: "minmax(180px, 1fr)",
-      },
-      {
-        id: "actions",
-        type: "action",
-        component: (entry) => (
-          <Actions>
-            <Button icon={<EditIcon />} neutral aria-label="Изменить" onClick={() => edit(entry)} />
-            <Button icon={<TrashIcon />} neutral aria-label="Удалить" onClick={() => void remove(entry)} />
-          </Actions>
-        ),
-        width: "72px",
-      },
-    ],
-    [all]
-  );
-
   return (
     <Scene icon={<NotepadIcon />} title="Табель" wide>
       <Topbar>
@@ -203,7 +167,7 @@ function Timesheet() {
       </Topbar>
       {user.isAdmin && (
         <Tabs>
-          <Tab active={!all} onClick={() => { setAll(false); setEmployeeId(undefined); }}>
+          <Tab active={!all} onClick={() => { setAll(false); setEmployeeId(undefined); setWorkplace(undefined); }}>
             Мои часы
           </Tab>
           <Tab active={all} onClick={() => setAll(true)}>Все сотрудники</Tab>
@@ -221,15 +185,22 @@ function Timesheet() {
               onChange={(event) => setEmployeeId(event.target.value || undefined)}
             >
               <option value="">Все сотрудники</option>
-              {employees.map(([id, name]) => (
-                <option key={id} value={id}>{name}</option>
+              {timesheetEntries.employees.map((employee) => (
+                <option key={employee.id} value={employee.id}>{employee.name}</option>
               ))}
             </select>
+            <FilterLabel>
+              Место
+              <select value={workplace ?? ""} onChange={(event) => setWorkplace(event.target.value || undefined)}>
+                <option value="">Все места</option>
+                {timesheetEntries.workplaces.map((item) => <option key={item.id} value={item.name}>{item.name}</option>)}
+              </select>
+            </FilterLabel>
             <TeamTotals>
               {Object.entries(totals)
                 .sort(([, left], [, right]) => right.hours - left.hours)
                 .map(([id, value]) => (
-                  <TeamTotal key={id}>
+                  <TeamTotal key={id} data-selected={id === employeeId} onClick={() => setEmployeeId(id)}>
                     <Avatar
                       model={{
                         id,
@@ -252,6 +223,15 @@ function Timesheet() {
                   </TeamTotal>
                 ))}
             </TeamTotals>
+            <WorkplaceSettings>
+              <span>Места работы</span>
+              {timesheetEntries.workplaces.length ? timesheetEntries.workplaces.map((item) => (
+                <WorkplaceSetting key={item.id}>
+                  {item.name}
+                  <button aria-label={`Удалить ${item.name}`} onClick={() => void timesheetEntries.deleteWorkplace(item.id)}>×</button>
+                </WorkplaceSetting>
+              )) : <small>Добавляются при заполнении табеля</small>}
+            </WorkplaceSettings>
           </TeamPanel>
           <CalendarPanel>
             <CalendarHeading>
@@ -287,36 +267,16 @@ function Timesheet() {
             ) : !timesheetEntries.isFetching && entries.length === 0 ? (
               <Empty>За этот месяц записей нет</Empty>
             ) : (
-              <Table
-                data={entries}
-                columns={columns}
-                sort={{ id: "date", desc: true }}
-                onChangeSort={() => undefined}
-                loading={timesheetEntries.isFetching}
-                page={{ hasNext: false }}
-                rowHeight={52}
-              />
+              <TimesheetList entries={entries} onEdit={edit} onDelete={remove} />
             )}
           </CalendarPanel>
         </AdminLayout>
       ) : (
         <>
-          <EntryForm form={form} setForm={setForm} onSave={save} />
+          <EntryForm form={form} workplaces={timesheetEntries.workplaces} setForm={setForm} onSave={save} />
           <HistoryTitle>История за месяц <span>{total.toFixed(2)} ч</span></HistoryTitle>
           {!timesheetEntries.isFetching && entries.length === 0 ? <Empty>За этот месяц записей нет</Empty> : (
-            <History>
-              {entries.map((entry) => (
-                <HistoryRow key={entry.id}>
-                  <DateCell>{formatDate(entry.date)}</DateCell>
-                  <Hours>{entry.hours} ч</Hours>
-                  <Comment>{entry.comment || "—"}</Comment>
-                  <Actions>
-                    <Button icon={<EditIcon />} neutral aria-label="Изменить" onClick={() => edit(entry)} />
-                    <Button icon={<TrashIcon />} neutral aria-label="Удалить" onClick={() => void remove(entry)} />
-                  </Actions>
-                </HistoryRow>
-              ))}
-            </History>
+            <TimesheetList entries={entries} onEdit={edit} onDelete={remove} />
           )}
         </>
       )}
@@ -334,7 +294,7 @@ function MonthNavigation({ month, onChange }: { month: string; onChange: (month:
   );
 }
 
-function EntryForm({ form, setForm, onSave }: { form: Form; setForm: React.Dispatch<React.SetStateAction<Form>>; onSave: () => Promise<void> }) {
+function EntryForm({ form, workplaces, setForm, onSave }: { form: Form; workplaces: { id: string; name: string }[]; setForm: React.Dispatch<React.SetStateAction<Form>>; onSave: () => Promise<void> }) {
   return (
     <EntryCard>
       <DateInput>
@@ -345,6 +305,11 @@ function EntryForm({ form, setForm, onSave }: { form: Form; setForm: React.Dispa
         <label htmlFor="timesheet-hours">Часы</label>
         <input id="timesheet-hours" type="number" min="0" max="24" step="0.25" inputMode="decimal" value={form.hours} onChange={(event) => setForm({ ...form, hours: event.target.value })} />
       </HoursInput>
+      <WorkplaceInput>
+        <label htmlFor="timesheet-workplace">Место</label>
+        <input id="timesheet-workplace" list="timesheet-workplaces" value={form.workplace} placeholder="Комс, Цех или другое" onChange={(event) => setForm({ ...form, workplace: event.target.value })} />
+        <datalist id="timesheet-workplaces">{workplaces.map((item) => <option key={item.id} value={item.name} />)}</datalist>
+      </WorkplaceInput>
       <CommentInput value={form.comment} placeholder="Комментарий (необязательно)" onChange={(event) => setForm({ ...form, comment: event.target.value })} />
       <Button onClick={() => void onSave()}>{form.id ? "Сохранить" : "Добавить часы"}</Button>
     </EntryCard>
@@ -385,8 +350,14 @@ function TimesheetCalendar({
             onClick={() => onSelect(date)}
           >
             <span>{Number(date.slice(-2))}</span>
-            {hours > 0 && <strong>{hours.toFixed(2)} ч</strong>}
-            {dayEntries.length > 1 && <small>{dayEntries.length} сотрудников</small>}
+            {hours > 0 && <CalendarEntries>{dayEntries.map((entry) => (
+              <CalendarEntry key={entry.id}>
+                <Avatar model={{ id: entry.userId, name: entry.userName ?? "Сотрудник", avatarUrl: entry.userAvatarUrl ?? null }} size={AvatarSize.Small} showHoverCard={false} />
+                <span>{entry.userName ?? "Сотрудник"}</span>
+                <strong>{entry.hours} ч</strong>
+                {entry.workplace && <small>{entry.workplace}</small>}
+              </CalendarEntry>
+            ))}</CalendarEntries>}
           </CalendarDay>
         );
       })}
@@ -404,13 +375,28 @@ function DayDetails({ date, entries }: { date: string; entries: TimesheetEntry[]
       </DaySummaryTitle>
       {entries.length ? entries.map((entry) => (
         <DayEntry key={entry.id}>
+          <Avatar model={{ id: entry.userId, name: entry.userName ?? "Сотрудник", avatarUrl: entry.userAvatarUrl ?? null }} size={AvatarSize.Small} showHoverCard={false} />
           <span>{entry.userName ?? 'Сотрудник'}</span>
+          <span>{entry.workplace || '—'}</span>
           <span>{entry.comment || '—'}</span>
           <strong>{entry.hours} ч</strong>
         </DayEntry>
       )) : <Empty>За этот день записей нет</Empty>}
     </DaySummary>
   );
+}
+
+function TimesheetList({ entries, onEdit, onDelete }: { entries: TimesheetEntry[]; onEdit: (entry: TimesheetEntry) => void; onDelete: (entry: TimesheetEntry) => Promise<void> }) {
+  return <History>{entries.map((entry) => (
+    <HistoryRow key={entry.id}>
+      <Avatar model={{ id: entry.userId, name: entry.userName ?? "Сотрудник", avatarUrl: entry.userAvatarUrl ?? null }} size={AvatarSize.Small} showHoverCard={false} />
+      <DateCell>{formatDate(entry.date)}</DateCell>
+      <PersonMeta><strong>{entry.userName ?? "Сотрудник"}</strong><span>{entry.workplace || "Место не указано"}</span></PersonMeta>
+      <Comment>{entry.comment || "—"}</Comment>
+      <Hours>{entry.hours} ч</Hours>
+      <Actions><Button icon={<EditIcon />} neutral aria-label="Изменить" onClick={() => onEdit(entry)} /><Button icon={<TrashIcon />} neutral aria-label="Удалить" onClick={() => void onDelete(entry)} /></Actions>
+    </HistoryRow>
+  ))}</History>;
 }
 
 function calendarDays(month: string) {
@@ -536,13 +522,54 @@ const TeamTotals = styled.div`
   display: grid;
 `;
 
-const TeamTotal = styled.div`
+const TeamTotal = styled.button`
   display: grid;
   grid-template-columns: 28px minmax(0, 1fr) 76px;
   align-items: center;
   gap: 8px;
   padding: 10px 0;
+  width: 100%;
+  border: 0;
   border-bottom: 1px solid ${(props) => props.theme.inputBorder};
+  background: transparent;
+  color: ${(props) => props.theme.text};
+  cursor: var(--pointer);
+  text-align: left;
+
+  &[data-selected="true"] { background: ${(props) => props.theme.background}; }
+`;
+
+const FilterLabel = styled.label`
+  display: grid;
+  gap: 4px;
+  color: ${(props) => props.theme.textTertiary};
+  font-size: 11px;
+
+  select { margin-top: 0 !important; }
+`;
+
+const WorkplaceSettings = styled.section`
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 18px;
+  color: ${(props) => props.theme.textTertiary};
+  font-size: 11px;
+
+  > span { width: 100%; font-weight: 600; }
+  small { width: 100%; }
+`;
+
+const WorkplaceSetting = styled.span`
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 5px 3px 7px;
+  border-radius: 999px;
+  background: ${(props) => props.theme.background};
+  color: ${(props) => props.theme.textSecondary};
+
+  button { border: 0; background: transparent; color: inherit; cursor: var(--pointer); font-size: 15px; line-height: 1; padding: 0; }
 `;
 
 const PersonMeta = styled.div`
@@ -643,7 +670,7 @@ const CalendarDay = styled.button`
   display: grid;
   align-content: start;
   gap: 5px;
-  min-height: 64px;
+  min-height: 104px;
   padding: 8px;
   border: 0;
   border-right: 1px solid ${(props) => props.theme.inputBorder};
@@ -656,8 +683,26 @@ const CalendarDay = styled.button`
   &[data-current="false"] { color: ${(props) => props.theme.textTertiary}; opacity: .55; }
   &[data-worked="true"] { background: ${(props) => props.theme.backgroundSecondary}; }
   &[data-selected="true"] { box-shadow: inset 0 0 0 2px ${(props) => props.theme.accent}; }
-  strong { font-size: 14px; }
-  small { font-size: 10px; }
+`;
+
+const CalendarEntries = styled.div`
+  display: grid;
+  gap: 3px;
+`;
+
+const CalendarEntry = styled.div`
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 4px;
+  border-radius: 4px;
+  background: ${(props) => props.theme.background};
+  font-size: 10px;
+
+  span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  strong { font-size: 10px; }
+  small { grid-column: 2 / -1; color: ${(props) => props.theme.textTertiary}; font-size: 9px; text-align: left; }
 `;
 
 const DaySummary = styled.div`
@@ -676,13 +721,13 @@ const DaySummaryTitle = styled.div`
 
 const DayEntry = styled.div`
   display: grid;
-  grid-template-columns: minmax(120px, .7fr) minmax(0, 1.5fr) auto;
+  grid-template-columns: 20px minmax(90px, .7fr) minmax(80px, .6fr) minmax(0, 1.5fr) auto;
   gap: 12px;
   padding: 9px 0;
   border-top: 1px solid ${(props) => props.theme.inputBorder};
   font-size: 13px;
 
-  span:nth-child(2) { color: ${(props) => props.theme.textSecondary}; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  span:nth-child(4) { color: ${(props) => props.theme.textSecondary}; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 `;
 
 const Months = styled.nav`
@@ -693,7 +738,7 @@ const MonthCurrent = styled.strong`
   min-width: 175px; text-align: center; font-size: 20px; text-transform: capitalize;
 `;
 const EntryCard = styled.section`
-  display: grid; grid-template-columns: auto minmax(112px, 160px) minmax(160px, 1fr) auto; align-items: end; gap: 12px; padding: 16px; border: 1px solid ${(props) => props.theme.inputBorder}; border-radius: 10px; background: ${(props) => props.theme.backgroundSecondary};
+  display: grid; grid-template-columns: auto minmax(112px, 160px) minmax(150px, 1fr) minmax(160px, 1fr) auto; align-items: end; gap: 12px; padding: 16px; border: 1px solid ${(props) => props.theme.inputBorder}; border-radius: 10px; background: ${(props) => props.theme.backgroundSecondary};
   @media (max-width: 700px) { grid-template-columns: 1fr 1fr; > :nth-child(3) { grid-column: 1 / -1; } }
 `;
 const DateInput = styled.label`
@@ -703,6 +748,10 @@ const DateInput = styled.label`
 const HoursInput = styled.div`
   display: grid; gap: 3px; color: ${(props) => props.theme.textTertiary}; font-size: 12px;
   input { width: 100%; border: 0; border-bottom: 2px solid ${(props) => props.theme.accent}; border-radius: 0; background: transparent; color: ${(props) => props.theme.text}; font-size: 28px; font-weight: 600; line-height: 1.15; outline: none; }
+`;
+const WorkplaceInput = styled.div`
+  display: grid; gap: 3px; color: ${(props) => props.theme.textTertiary}; font-size: 12px;
+  input { width: 100%; border: 0; border-bottom: 1px solid ${(props) => props.theme.inputBorder}; border-radius: 0; background: transparent; color: ${(props) => props.theme.text}; font-size: 13px; outline: none; padding: 8px 0; }
 `;
 const CommentInput = styled.input`
   width: 100%; border: 0; border-bottom: 1px solid ${(props) => props.theme.inputBorder}; background: transparent; color: ${(props) => props.theme.text}; font-size: 13px; outline: none; padding: 8px 0;
@@ -714,8 +763,8 @@ const HistoryTitle = styled.h2`
 `;
 const History = styled.div`border-top: 1px solid ${(props) => props.theme.inputBorder};`;
 const HistoryRow = styled.div`
-  display: grid; grid-template-columns: 145px 72px minmax(0, 1fr) 70px; align-items: center; gap: 12px; min-height: 48px; border-bottom: 1px solid ${(props) => props.theme.inputBorder};
-  @media (max-width: 700px) { grid-template-columns: 1fr auto 58px; > :nth-child(3) { display: none; } }
+  display: grid; grid-template-columns: 20px 135px minmax(130px, .8fr) minmax(0, 1.4fr) 52px 70px; align-items: center; gap: 12px; min-height: 54px; border-bottom: 1px solid ${(props) => props.theme.inputBorder};
+  @media (max-width: 700px) { grid-template-columns: 20px 1fr auto 58px; > :nth-child(2), > :nth-child(4) { display: none; } }
 `;
 const DateCell = styled.span`font-size: 13px; text-transform: capitalize;`;
 const Hours = styled.strong`font-size: 13px;`;

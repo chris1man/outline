@@ -23,6 +23,10 @@ class TimesheetEntry extends Model {
 
   @Field
   @observable
+  workplace: string;
+
+  @Field
+  @observable
   comment: string;
   @Field userId: string;
   @Field userName?: string;

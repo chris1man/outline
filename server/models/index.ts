@@ -66,6 +66,8 @@ export { default as Template } from "./Template";
 
 export { default as TimesheetEntry } from "./TimesheetEntry";
 
+export { default as TimesheetWorkplace } from "./TimesheetWorkplace";
+
 export { default as User } from "./User";
 
 export { default as UserAuthentication } from "./UserAuthentication";

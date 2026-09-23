@@ -10,6 +10,7 @@ export default function presentTimesheetEntry(entry: TimesheetEntry) {
     userRole: entry.user?.role,
     date: entry.date,
     hours: Number(entry.hours),
+    workplace: entry.workplace,
     comment: entry.comment,
     createdAt: entry.createdAt,
     updatedAt: entry.updatedAt,

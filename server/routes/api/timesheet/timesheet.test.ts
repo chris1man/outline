@@ -1,4 +1,4 @@
-import { TimesheetEntry } from "@server/models";
+import { TimesheetEntry, TimesheetWorkplace } from "@server/models";
 import {
   buildAdmin,
   buildGuestUser,
@@ -14,10 +14,20 @@ describe("timesheet access", () => {
     const user = await buildUser();
 
     const response = await server.post("/api/timesheet.upsert", user, {
-      body: { date: "2026-09-01", hours: 8, comment: "Работа" },
+      body: {
+        date: "2026-09-01",
+        hours: 8,
+        workplace: "Комс",
+        comment: "Работа",
+      },
     });
 
     expect(response.status).toEqual(200);
+    expect(
+      await TimesheetWorkplace.count({
+        where: { teamId: user.teamId, name: "Комс" },
+      })
+    ).toEqual(1);
   });
 
   it("does not allow an employee to list another employee's entries", async () => {
@@ -96,6 +106,20 @@ describe("timesheet access", () => {
     const response = await server.post("/api/timesheet.list", user, {
       body: { month: "2026-09" },
     });
+    expect(response.status).toEqual(403);
+  });
+
+  it("does not allow an employee to remove a shared workplace", async () => {
+    const user = await buildUser();
+    const workplace = await TimesheetWorkplace.create({
+      teamId: user.teamId,
+      name: "Комс",
+    });
+
+    const response = await server.post("/api/timesheet.workplace_delete", user, {
+      body: { id: workplace.id },
+    });
+
     expect(response.status).toEqual(403);
   });
 });

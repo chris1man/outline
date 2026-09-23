@@ -22,6 +22,7 @@ export const TimesheetUpsertSchema = BaseSchema.extend({
     userId: z.uuid().optional(),
     date,
     hours,
+    workplace: z.string().trim().max(100).default(""),
     comment: z.string().trim().max(2000).default(""),
   }),
 });
@@ -31,3 +32,10 @@ export const TimesheetDeleteSchema = BaseSchema.extend({
   body: z.object({ id: z.uuid() }),
 });
 export type TimesheetDeleteReq = z.infer<typeof TimesheetDeleteSchema>;
+
+export const TimesheetWorkplaceDeleteSchema = BaseSchema.extend({
+  body: z.object({ id: z.uuid() }),
+});
+export type TimesheetWorkplaceDeleteReq = z.infer<
+  typeof TimesheetWorkplaceDeleteSchema
+>;

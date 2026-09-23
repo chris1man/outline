@@ -18,6 +18,9 @@ class TimesheetEntry extends IdModel<
   @Column(DataType.TEXT)
   comment: string;
 
+  @Column(DataType.STRING(100))
+  workplace: string;
+
   @BelongsTo(() => Team, "teamId")
   team: Team;
 

@@ -1,4 +1,4 @@
-import { action, runInAction } from "mobx";
+import { action, observable, runInAction } from "mobx";
 import TimesheetEntry from "~/models/TimesheetEntry";
 import type RootStore from "./RootStore";
 import Store from "./base/Store";
@@ -6,6 +6,14 @@ import { client } from "~/utils/ApiClient";
 
 export default class TimesheetEntriesStore extends Store<TimesheetEntry> {
   apiEndpoint = "timesheet";
+
+  @observable workplaces: { id: string; name: string }[] = [];
+  @observable employees: {
+    id: string;
+    name: string;
+    avatarUrl?: string | null;
+    role: string;
+  }[] = [];
 
   constructor(rootStore: RootStore) {
     super(rootStore, TimesheetEntry);
@@ -17,7 +25,11 @@ export default class TimesheetEntriesStore extends Store<TimesheetEntry> {
     this.isFetching = true;
     try {
       const response = await client.post("/timesheet.list", { month, ...options });
-      return runInAction(() => response.data.map(this.add));
+      return runInAction(() => {
+        this.workplaces = response.workplaces ?? [];
+        this.employees = response.employees ?? [];
+        return response.data.map(this.add);
+      });
     } finally {
       runInAction(() => {
         this.isFetching = false;
@@ -32,6 +44,7 @@ export default class TimesheetEntriesStore extends Store<TimesheetEntry> {
     date: string;
     hours: number;
     comment: string;
+    workplace: string;
   }) {
     this.isSaving = true;
     try {
@@ -42,5 +55,13 @@ export default class TimesheetEntriesStore extends Store<TimesheetEntry> {
         this.isSaving = false;
       });
     }
+  }
+
+  @action
+  async deleteWorkplace(id: string) {
+    await client.post("/timesheet.workplace_delete", { id });
+    runInAction(() => {
+      this.workplaces = this.workplaces.filter((workplace) => workplace.id !== id);
+    });
   }
 }
