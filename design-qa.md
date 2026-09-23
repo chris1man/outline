@@ -28,7 +28,7 @@
 - [x] Open a separate modal from «Добавить часы» with arbitrary date and hours.
 - [x] Add a one-click «Сегодня» control that scrolls to the current date without changing the selected month by hand.
 - [x] Replace ambiguous date strings with a day-of-week, day-number, and month mark.
-- [x] Use non-overlapping mobile cards and a fixed mobile add-hours action.
+- [x] Use non-overlapping mobile cards, a text-labelled «Сегодня» shortcut, and a taller fixed mobile add-hours action.
 - [x] Use responsive ledger columns for a narrow screen.
 - [ ] Capture and compare the deployed page to the selected reference.
 
