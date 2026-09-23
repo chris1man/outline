@@ -30,6 +30,22 @@ describe("timesheet access", () => {
     ).toEqual(1);
   });
 
+  it("always provides default workplaces", async () => {
+    const user = await buildUser();
+
+    const response = await server.post("/api/timesheet.list", user, {
+      body: { month: "2026-09" },
+    });
+
+    expect(response.status).toEqual(200);
+    expect(response.body.workplaces).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ name: "Комс", isDefault: true }),
+        expect.objectContaining({ name: "Цех", isDefault: true }),
+      ])
+    );
+  });
+
   it("does not allow an employee to list another employee's entries", async () => {
     const user = await buildUser();
     const anotherUser = await buildUser({ teamId: user.teamId });

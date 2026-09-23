@@ -41,6 +41,20 @@ router.post(
     }
     const userId = all ? requestedUserId : targetUserId(user, requestedUserId);
     const { start, end } = monthRange(ctx.input.body.month);
+    const defaultWorkplaces = await Promise.all(
+      ["Комс", "Цех"].map((name) =>
+        TimesheetWorkplace.findOrCreate({
+          where: { teamId: user.teamId, name },
+          defaults: { teamId: user.teamId, name, isDefault: true },
+        })
+      )
+    );
+    await Promise.all(
+      defaultWorkplaces
+        .map(([workplace]) => workplace)
+        .filter((workplace) => !workplace.isDefault)
+        .map((workplace) => workplace.update({ isDefault: true }))
+    );
     const [entries, workplaces, employees] = await Promise.all([
       TimesheetEntry.findAll({
       where: {

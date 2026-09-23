@@ -22,10 +22,11 @@
 
 ## Implementation checklist
 
-- [x] Present every date of the selected month in a compact, directly editable ledger.
+- [x] Present every date of the selected month in a wide, input-like ledger with distinct date, hours, workplace, and note columns.
 - [x] Open inline editing by clicking a date, including dates with no entry.
-- [x] Offer default workplaces as light quick choices and preserve a free-text option.
+- [x] Offer default workplaces as icon-backed quick choices and preserve a free-text option.
 - [x] Open a separate modal from «Добавить часы» with arbitrary date and hours.
+- [x] Add a one-click «Сегодня» control that scrolls to the current date without changing the selected month by hand.
 - [x] Use responsive ledger columns for a narrow screen.
 - [ ] Capture and compare the deployed page to the selected reference.
 
