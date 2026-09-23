@@ -1063,18 +1063,19 @@ const MobileHalfSwitch = styled.nav`
 
 const LedgerHeader = styled.div`
   display: grid;
-  grid-template-columns: 126px 82px 116px minmax(0, 1fr);
-  gap: 8px;
+  grid-template-columns: 130px 94px 144px minmax(0, 1fr);
   position: sticky;
   z-index: 1;
   top: 0;
-  padding: 10px;
   border-bottom: 1px solid ${(props) => props.theme.inputBorder};
   background: ${(props) => props.theme.backgroundSecondary};
   color: ${(props) => props.theme.textTertiary};
   font-size: 11px;
   font-weight: 600;
   text-transform: uppercase;
+
+  span { padding: 11px 12px; }
+  span + span { border-left: 1px solid ${(props) => props.theme.inputBorder}; }
 
   @media (max-width: 700px) { display: none; }
 `;
@@ -1087,12 +1088,13 @@ const Ledger = styled.div`
 
 const LedgerRow = styled.div`
   display: grid;
-  grid-template-columns: 126px 82px 116px minmax(0, 1fr);
+  grid-template-columns: 130px 94px 144px minmax(0, 1fr);
   align-items: center;
-  gap: 12px;
-  min-height: 64px;
+  min-height: 63px;
   border-bottom: 1px solid ${(props) => props.theme.inputBorder};
-  padding: 0 10px;
+
+  > * { min-width: 0; padding: 0 12px; }
+  > * + * { border-left: 1px solid ${(props) => props.theme.inputBorder}; }
 
   &[data-today="true"] { box-shadow: inset 3px 0 0 ${(props) => props.theme.accent}; background: ${(props) => props.theme.backgroundSecondary}; }
   &:hover { background: ${(props) => props.theme.backgroundSecondary}; }
@@ -1103,6 +1105,9 @@ const LedgerRow = styled.div`
     padding: 8px 10px;
     border: 1px solid ${(props) => props.theme.inputBorder};
     border-radius: 10px;
+
+    > * { padding: 0; }
+    > * + * { border-left: 0; }
 
     > :nth-child(1) { grid-column: 1; grid-row: 1; }
     > :nth-child(2) { grid-column: 2; grid-row: 1; }
@@ -1119,6 +1124,7 @@ const LedgerEditRow = styled(LedgerRow)`
   border-radius: 8px;
   background: ${(props) => props.theme.backgroundSecondary};
 
+  > * + * { border-left: 0; }
   > :nth-child(4), > :last-child { grid-column: 1 / -1; }
   @media (max-width: 900px) { grid-template-columns: 1fr 100px minmax(160px, 1fr); > :nth-child(4) { grid-column: 1 / -1; } > :last-child { display: flex; grid-column: 1 / -1; } }
   @media (max-width: 700px) { display: grid; grid-template-columns: 1fr 86px; gap: 12px; padding: 14px; > :nth-child(1), > :nth-child(2) { grid-column: auto; grid-row: auto; } > :nth-child(3), > :nth-child(4), > :last-child { grid-column: 1 / -1; } }
@@ -1128,7 +1134,9 @@ const LedgerDate = styled.div`
   display: grid;
   align-items: center;
   gap: 5px;
-  padding: 0 10px;
+  padding: 0 12px;
+
+  @media (max-width: 700px) { padding: 0; }
 `;
 
 const LedgerDateButton = styled.button`
@@ -1136,14 +1144,14 @@ const LedgerDateButton = styled.button`
   align-items: center;
   gap: 5px;
   align-self: stretch;
-  padding: 0 10px;
+  padding: 0 12px;
   border: 0;
   background: transparent;
   color: ${(props) => props.theme.text};
   cursor: var(--pointer);
   text-align: left;
 
-  @media (max-width: 700px) { flex-direction: column; align-items: flex-start; gap: 3px; }
+  @media (max-width: 700px) { flex-direction: column; align-items: flex-start; gap: 3px; padding: 0; }
 `;
 
 const DateMarkWrap = styled.span`
@@ -1171,12 +1179,15 @@ const TodayBadge = styled.small`
 `;
 
 const LedgerHours = styled.button`
+  padding: 0 12px;
   border: 0;
   background: transparent;
   color: ${(props) => props.theme.text};
   cursor: var(--pointer);
   font-weight: 600;
   text-align: left;
+
+  @media (max-width: 700px) { padding: 0; }
 `;
 
 const HoursPill = styled.span`
@@ -1193,14 +1204,18 @@ const HoursPill = styled.span`
 `;
 
 const LedgerPlace = styled.button`
+  padding: 0 12px;
   border: 0;
   background: transparent;
   cursor: var(--pointer);
   text-align: left;
+
+  @media (max-width: 700px) { padding: 0; }
 `;
 
 const LedgerComment = styled.button`
   overflow: hidden;
+  padding: 0 12px;
   border: 0;
   background: transparent;
   color: ${(props) => props.theme.textSecondary};
@@ -1209,6 +1224,8 @@ const LedgerComment = styled.button`
   text-align: left;
   text-overflow: ellipsis;
   white-space: nowrap;
+
+  @media (max-width: 700px) { padding: 0; }
 `;
 
 const WorkplaceTag = styled.span`
@@ -1222,7 +1239,7 @@ const WorkplaceTag = styled.span`
 
 const AddHours = styled.span`
   display: inline-block;
-  padding: 5px 8px;
+  padding: 6px 9px;
   border: 1px solid ${(props) => props.theme.accent};
   border-radius: 6px;
   background: ${(props) => props.theme.backgroundSecondary};
@@ -1230,7 +1247,7 @@ const AddHours = styled.span`
   font-size: 12px;
   font-weight: 600;
 
-  @media (max-width: 700px) { white-space: nowrap; }
+  white-space: nowrap;
 `;
 
 const InlineHours = styled.input`
