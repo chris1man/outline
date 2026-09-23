@@ -30,6 +30,7 @@
 - [x] Replace ambiguous date strings with a day-of-week, day-number, and month mark.
 - [x] Use non-overlapping mobile cards, a text-labelled «Сегодня» shortcut, and a taller fixed mobile add-hours action.
 - [x] Split the desktop ledger into two visible halves and add a remembered mobile half-month selector per user and month.
+- [x] Frame each desktop half as a separate table card with contained headings, row dividers, and a distinct add-hours action.
 - [x] Use responsive ledger columns for a narrow screen.
 - [ ] Capture and compare the deployed page to the selected reference.
 

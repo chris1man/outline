@@ -1008,7 +1008,7 @@ const SummaryProgress = styled.div`
 const DesktopLedgerColumns = styled.div`
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 22px;
+  gap: 16px;
 
   @media (max-width: 700px) { display: none; }
 `;
@@ -1021,13 +1021,22 @@ const MobileLedger = styled.div`
 
 const LedgerColumn = styled.section`
   min-width: 0;
+  overflow: hidden;
+  border: 1px solid ${(props) => props.theme.inputBorder};
+  border-radius: 12px;
+  background: ${(props) => props.theme.background};
+  box-shadow: 0 2px 8px rgba(35, 24, 21, .035);
+
+  @media (max-width: 700px) { border: 0; border-radius: 0; box-shadow: none; }
 `;
 
 const LedgerHalfTitle = styled.h2`
   margin: 0;
-  padding: 0 10px 10px;
+  padding: 15px 16px 12px;
+  border-bottom: 1px solid ${(props) => props.theme.inputBorder};
+  background: ${(props) => props.theme.backgroundSecondary};
   color: ${(props) => props.theme.text};
-  font-size: 16px;
+  font-size: 17px;
 
   span { color: ${(props) => props.theme.textTertiary}; font-size: 12px; font-weight: 500; text-transform: capitalize; }
 
@@ -1061,7 +1070,7 @@ const LedgerHeader = styled.div`
   top: 0;
   padding: 10px;
   border-bottom: 1px solid ${(props) => props.theme.inputBorder};
-  background: ${(props) => props.theme.background};
+  background: ${(props) => props.theme.backgroundSecondary};
   color: ${(props) => props.theme.textTertiary};
   font-size: 11px;
   font-weight: 600;
@@ -1083,6 +1092,7 @@ const LedgerRow = styled.div`
   gap: 12px;
   min-height: 64px;
   border-bottom: 1px solid ${(props) => props.theme.inputBorder};
+  padding: 0 10px;
 
   &[data-today="true"] { box-shadow: inset 3px 0 0 ${(props) => props.theme.accent}; background: ${(props) => props.theme.backgroundSecondary}; }
   &:hover { background: ${(props) => props.theme.backgroundSecondary}; }
@@ -1211,6 +1221,11 @@ const WorkplaceTag = styled.span`
 `;
 
 const AddHours = styled.span`
+  display: inline-block;
+  padding: 5px 8px;
+  border: 1px solid ${(props) => props.theme.accent};
+  border-radius: 6px;
+  background: ${(props) => props.theme.backgroundSecondary};
   color: ${(props) => props.theme.accent};
   font-size: 12px;
   font-weight: 600;
