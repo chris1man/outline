@@ -5,6 +5,7 @@ import {
   HomeIcon,
   MoreIcon,
   NotepadIcon,
+  PlusIcon,
   TrashIcon,
 } from "outline-icons";
 import { observer } from "mobx-react";
@@ -53,6 +54,14 @@ const formatDate = (date: string) =>
     month: "short",
     weekday: "short",
   }).format(new Date(`${date}T12:00:00`));
+const dateParts = (date: string) => {
+  const value = new Date(`${date}T12:00:00`);
+  return {
+    weekday: new Intl.DateTimeFormat("ru-RU", { weekday: "short" }).format(value),
+    day: new Intl.DateTimeFormat("ru-RU", { day: "numeric" }).format(value),
+    month: new Intl.DateTimeFormat("ru-RU", { month: "short" }).format(value),
+  };
+};
 
 function Timesheet() {
   const user = useCurrentUser();
@@ -220,12 +229,13 @@ function Timesheet() {
         </TitleGroup>
         <MonthNavigation month={month} onChange={setMonth} />
         <TopActions>
-          {!all && (
+          {all ? (
+            <Button onClick={() => openEntryModal()}>Добавить часы</Button>
+          ) : (
             <Button neutral icon={<CalendarIcon />} onClick={goToToday}>
               Сегодня
             </Button>
           )}
-          <Button onClick={() => openEntryModal()}>Добавить часы</Button>
         </TopActions>
       </Topbar>
       {user.isAdmin && (
@@ -347,6 +357,7 @@ function Timesheet() {
             onChange={setForm}
             onSave={saveInline}
             onCancel={() => setEditingDate(undefined)}
+            onAdd={() => openEntryModal()}
             onRemove={async (entry) => {
               await remove(entry);
               setEditingDate(undefined);
@@ -370,7 +381,7 @@ function MonthNavigation({ month, onChange }: { month: string; onChange: (month:
 
 type Workplace = { id: string; name: string; isDefault: boolean };
 
-function PersonalLedger({ month, entries, total, form, editingDate, workplaces, onSelect, onChange, onSave, onCancel, onRemove }: {
+function PersonalLedger({ month, entries, total, form, editingDate, workplaces, onSelect, onChange, onSave, onCancel, onAdd, onRemove }: {
   month: string;
   entries: TimesheetEntry[];
   total: number;
@@ -381,21 +392,26 @@ function PersonalLedger({ month, entries, total, form, editingDate, workplaces, 
   onChange: React.Dispatch<React.SetStateAction<Form>>;
   onSave: () => Promise<void>;
   onCancel: () => void;
+  onAdd: () => void;
   onRemove: (entry: TimesheetEntry) => Promise<void>;
 }) {
   const entriesByDate = new Map(entries.map((entry) => [entry.date, entry]));
+  const dates = monthDates(month);
 
   return (
     <PersonalLedgerWrap>
-      <PersonalSummary><span>Всего за {formatMonth(month)}</span><strong>{total.toFixed(2)} ч</strong></PersonalSummary>
+      <PersonalSummary>
+        <div><span>Всего за {formatMonth(month)}</span><strong>{total.toFixed(2)} ч</strong></div>
+        <SummaryProgress><span>{entries.length} из {dates.length} дней заполнено</span><div><i style={{ width: `${(entries.length / dates.length) * 100}%` }} /></div></SummaryProgress>
+      </PersonalSummary>
       <LedgerHeader><span>Дата</span><span>Часы</span><span>Место работы</span><span>Заметка</span></LedgerHeader>
       <Ledger>
-        {monthDates(month).map((date) => {
+        {dates.map((date) => {
           const entry = entriesByDate.get(date);
           const isEditing = editingDate === date;
           return isEditing ? (
             <LedgerEditRow id={`timesheet-day-${date}`} key={date}>
-              <LedgerDate><strong>{formatDate(date)}</strong>{date === localDate() && <small>Сегодня</small>}</LedgerDate>
+              <LedgerDate><DateMark date={date} />{date === localDate() && <small>Сегодня</small>}</LedgerDate>
               <InlineHours value={form.hours} onChange={(event) => onChange({ ...form, hours: event.target.value })} type="number" min="0" max="24" step="0.25" inputMode="decimal" autoFocus aria-label="Часы" />
               <WorkplaceField><span>Где работали?</span><WorkplacePicker form={form} workplaces={workplaces} onChange={onChange} inputId={`workplace-${date}`} /></WorkplaceField>
               <CommentInput value={form.comment} placeholder="Комментарий (необязательно)" onChange={(event) => onChange({ ...form, comment: event.target.value })} />
@@ -403,7 +419,7 @@ function PersonalLedger({ month, entries, total, form, editingDate, workplaces, 
             </LedgerEditRow>
           ) : (
             <LedgerRow id={`timesheet-day-${date}`} key={date} data-today={date === localDate()}>
-              <LedgerDateButton onClick={() => onSelect(date, entry)}><strong>{formatDate(date)}</strong>{date === localDate() && <small>Сегодня</small>}</LedgerDateButton>
+              <LedgerDateButton onClick={() => onSelect(date, entry)}><DateMark date={date} />{date === localDate() && <small>Сегодня</small>}</LedgerDateButton>
               <LedgerHours onClick={() => onSelect(date, entry)}>{entry ? <HoursPill>{entry.hours} ч</HoursPill> : "—"}</LedgerHours>
               <LedgerPlace onClick={() => onSelect(date, entry)}>{entry?.workplace ? <WorkplaceTag>{entry.workplace}</WorkplaceTag> : <AddHours>＋ Добавить часы</AddHours>}</LedgerPlace>
               <LedgerComment onClick={() => onSelect(date, entry)}>{entry?.comment || ""}</LedgerComment>
@@ -411,8 +427,15 @@ function PersonalLedger({ month, entries, total, form, editingDate, workplaces, 
           );
         })}
       </Ledger>
+      <LedgerFooter><Button neutral icon={<PlusIcon />} onClick={onAdd}>Добавить часы</Button></LedgerFooter>
+      <MobileActions><Button neutral icon={<CalendarIcon />} onClick={() => document.getElementById(`timesheet-day-${localDate()}`)?.scrollIntoView({ behavior: "smooth", block: "center" })} aria-label="Перейти к сегодняшнему дню" /><Button icon={<PlusIcon />} onClick={onAdd}>Добавить часы</Button></MobileActions>
     </PersonalLedgerWrap>
   );
+}
+
+function DateMark({ date }: { date: string }) {
+  const parts = dateParts(date);
+  return <DateMarkWrap><span>{parts.weekday}</span><strong>{parts.day}</strong><small>{parts.month}</small></DateMarkWrap>;
 }
 
 function TimesheetEntryModal({ initial, workplaces, onSave, onClose }: { initial: Form; workplaces: Workplace[]; onSave: (form: Form) => Promise<boolean>; onClose: () => void }) {
@@ -916,39 +939,61 @@ const Comment = styled.span`overflow: hidden; color: ${(props) => props.theme.te
 const Actions = styled.span`display: flex; gap: 2px;`;
 
 const PersonalLedgerWrap = styled.section`
-  max-width: 1180px;
-  margin: 26px auto 0;
+  margin-top: 26px;
+  padding-bottom: 82px;
 `;
 
 const PersonalSummary = styled.div`
   display: flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
-  margin: 0 0 20px;
-  padding: 16px 18px;
+  gap: 24px;
+  margin: 0 0 18px;
+  padding: 18px 20px;
   border: 1px solid ${(props) => props.theme.inputBorder};
   border-radius: 10px;
   background: ${(props) => props.theme.backgroundSecondary};
 
+  > div { display: grid; gap: 2px; }
   span { color: ${(props) => props.theme.textSecondary}; font-size: 13px; font-weight: 500; text-transform: capitalize; }
-  strong { font-size: 30px; letter-spacing: -0.04em; }
+  strong { font-size: 32px; letter-spacing: -0.04em; }
+
+  @media (max-width: 700px) { padding: 14px; strong { font-size: 26px; } }
+`;
+
+const SummaryProgress = styled.div`
+  display: grid;
+  gap: 6px;
+  min-width: 220px;
+
+  div { height: 5px; overflow: hidden; border-radius: 99px; background: ${(props) => props.theme.inputBorder}; }
+  i { display: block; height: 100%; border-radius: inherit; background: ${(props) => props.theme.accent}; }
+
+  @media (max-width: 700px) { min-width: 108px; text-align: right; }
 `;
 
 const LedgerHeader = styled.div`
   display: grid;
   grid-template-columns: 176px 112px 170px minmax(0, 1fr);
   gap: 12px;
-  padding: 0 10px 8px;
+  position: sticky;
+  z-index: 1;
+  top: 0;
+  padding: 10px;
+  border-bottom: 1px solid ${(props) => props.theme.inputBorder};
+  background: ${(props) => props.theme.background};
   color: ${(props) => props.theme.textTertiary};
   font-size: 11px;
   font-weight: 600;
   text-transform: uppercase;
 
-  @media (max-width: 700px) { grid-template-columns: 1fr 58px 96px; > :last-child { display: none; } }
+  @media (max-width: 700px) { display: none; }
 `;
 
 const Ledger = styled.div`
   border-top: 1px solid ${(props) => props.theme.inputBorder};
+
+  @media (max-width: 700px) { display: grid; gap: 8px; border: 0; }
 `;
 
 const LedgerRow = styled.div`
@@ -956,12 +1001,24 @@ const LedgerRow = styled.div`
   grid-template-columns: 176px 112px 170px minmax(0, 1fr);
   align-items: center;
   gap: 12px;
-  min-height: 48px;
+  min-height: 56px;
   border-bottom: 1px solid ${(props) => props.theme.inputBorder};
 
   &[data-today="true"] { box-shadow: inset 3px 0 0 ${(props) => props.theme.accent}; background: ${(props) => props.theme.backgroundSecondary}; }
   &:hover { background: ${(props) => props.theme.backgroundSecondary}; }
-  @media (max-width: 700px) { grid-template-columns: 1fr 58px 96px; > :last-child { display: none; } }
+  @media (max-width: 700px) {
+    grid-template-columns: 58px minmax(0, 1fr) auto;
+    min-height: 76px;
+    gap: 8px;
+    padding: 8px 10px;
+    border: 1px solid ${(props) => props.theme.inputBorder};
+    border-radius: 10px;
+
+    > :nth-child(1) { grid-column: 1; grid-row: 1; }
+    > :nth-child(2) { grid-column: 2; grid-row: 1; }
+    > :nth-child(3) { grid-column: 3; grid-row: 1; }
+    > :last-child { display: none; }
+  }
 `;
 
 const LedgerEditRow = styled(LedgerRow)`
@@ -973,20 +1030,21 @@ const LedgerEditRow = styled(LedgerRow)`
   background: ${(props) => props.theme.backgroundSecondary};
 
   @media (max-width: 900px) { grid-template-columns: 1fr 100px minmax(160px, 1fr); > :nth-child(4) { grid-column: 1 / -1; } > :last-child { display: flex; grid-column: 1 / -1; } }
+  @media (max-width: 700px) { display: grid; grid-template-columns: 1fr 86px; gap: 12px; padding: 14px; > :nth-child(1), > :nth-child(2) { grid-column: auto; grid-row: auto; } > :nth-child(3), > :nth-child(4), > :last-child { grid-column: 1 / -1; } }
 `;
 
 const LedgerDate = styled.div`
   display: grid;
-  gap: 2px;
+  align-items: center;
+  gap: 5px;
   padding: 0 10px;
-  text-transform: capitalize;
-  strong { font-size: 13px; }
   small { color: ${(props) => props.theme.accent}; font-size: 10px; font-weight: 600; }
 `;
 
 const LedgerDateButton = styled.button`
-  display: grid;
-  gap: 2px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
   align-self: stretch;
   padding: 0 10px;
   border: 0;
@@ -994,9 +1052,22 @@ const LedgerDateButton = styled.button`
   color: ${(props) => props.theme.text};
   cursor: var(--pointer);
   text-align: left;
-  text-transform: capitalize;
-  strong { font-size: 13px; }
   small { color: ${(props) => props.theme.accent}; font-size: 10px; font-weight: 600; }
+`;
+
+const DateMarkWrap = styled.span`
+  display: grid;
+  grid-template-columns: auto auto;
+  align-items: baseline;
+  column-gap: 6px;
+  line-height: 1;
+  text-transform: capitalize;
+
+  span { grid-column: 1 / -1; color: ${(props) => props.theme.textTertiary}; font-size: 10px; font-weight: 700; text-transform: uppercase; }
+  strong { font-size: 22px; letter-spacing: -0.04em; }
+  small { color: ${(props) => props.theme.textSecondary}; font-size: 12px; font-weight: 600; }
+
+  @media (max-width: 700px) { gap: 1px; strong { font-size: 24px; } small { display: none; } }
 `;
 
 const LedgerHours = styled.button`
@@ -1053,6 +1124,8 @@ const AddHours = styled.span`
   color: ${(props) => props.theme.accent};
   font-size: 12px;
   font-weight: 600;
+
+  @media (max-width: 700px) { white-space: nowrap; }
 `;
 
 const InlineHours = styled.input`
@@ -1092,6 +1165,36 @@ const LedgerActions = styled.div`
   display: flex;
   gap: 6px;
   > button { white-space: nowrap; }
+`;
+
+const LedgerFooter = styled.div`
+  display: flex;
+  justify-content: center;
+  padding: 26px 0 0;
+
+  @media (max-width: 700px) { display: none; }
+`;
+
+const MobileActions = styled.div`
+  display: none;
+
+  @media (max-width: 700px) {
+    position: fixed;
+    z-index: 4;
+    right: 12px;
+    bottom: 12px;
+    left: 12px;
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 8px;
+    padding: 8px;
+    border: 1px solid ${(props) => props.theme.inputBorder};
+    border-radius: 12px;
+    background: ${(props) => props.theme.background};
+    box-shadow: 0 8px 24px rgba(0, 0, 0, .12);
+
+    > button:last-child { justify-content: center; }
+  }
 `;
 
 const ModalForm = styled.div`
