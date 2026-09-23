@@ -1,14 +1,14 @@
-# Design QA — MAKI Timesheet
+# Design QA — MAKI Timesheet / «Мои часы»
 
-- Source visual truth: `C:\Users\makit\.codex\state\plugins\product-design\assets\maki-timesheet-calendar-team-reference.png`
+- Source visual truth: `C:\Users\makit\.codex\generated_images\01a0af72-070d-7c51-a434-25f09b22c3c4\exec-a9f859cd-fca6-4cba-bf8a-74b6a20dd1ac.png` (selected option 3: monthly ledger)
 - Implementation screenshot: unavailable
-- Target viewport: 1440 × 1024 desktop web app
-- Target state: administrator, September 2026, all employees calendar view
+- Target viewports: 1440 × 1024 desktop; 390 × 844 mobile
+- Target state: «Мои часы», September 2026, inline edit on a selected day
 
 ## Findings
 
 - [P1] Browser-rendered implementation comparison is unavailable.
-  - Evidence: the checkout has no `node_modules`, and no user-selected browser session is available for capture.
+  - Evidence: the checkout has no `node_modules`; authenticated browser capture is not available in this task.
   - Impact: typography, actual responsive layout, and visual fidelity cannot be verified against the selected reference.
   - Fix: install workspace dependencies, run the app, and capture the Timesheet screen at 1440 × 1024 after deployment or in a selected browser session.
 
@@ -22,9 +22,11 @@
 
 ## Implementation checklist
 
-- [x] Add calendar and list modes for the administrator.
-- [x] Add all-employee and single-employee filter and totals.
-- [x] Add MAKI / База знаний sidebar branding.
+- [x] Present every date of the selected month in a compact, directly editable ledger.
+- [x] Open inline editing by clicking a date, including dates with no entry.
+- [x] Offer default workplaces as light quick choices and preserve a free-text option.
+- [x] Open a separate modal from «Добавить часы» with arbitrary date and hours.
+- [x] Use responsive ledger columns for a narrow screen.
 - [ ] Capture and compare the deployed page to the selected reference.
 
 final result: blocked

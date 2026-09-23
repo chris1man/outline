@@ -48,7 +48,7 @@ const formatDate = (date: string) =>
 
 function Timesheet() {
   const user = useCurrentUser();
-  const { timesheetEntries } = useStores();
+  const { dialogs, timesheetEntries } = useStores();
   const [month, setMonth] = React.useState(currentMonth);
   const [all, setAll] = React.useState(false);
   const [employeeId, setEmployeeId] = React.useState<string>();
@@ -58,6 +58,7 @@ function Timesheet() {
   );
   const [selectedDate, setSelectedDate] = React.useState(localDate);
   const [form, setForm] = React.useState<Form>(initialForm);
+  const [editingDate, setEditingDate] = React.useState<string>();
 
   React.useEffect(() => {
     void timesheetEntries.fetchMonth(month, all ? { all: true } : {});
@@ -106,43 +107,74 @@ function Timesheet() {
   );
   const selectedEntries = entries.filter((entry) => entry.date === selectedDate);
 
-  const startEntry = () => {
-    setAll(false);
-    window.requestAnimationFrame(() =>
-      document.getElementById("timesheet-hours")?.focus()
-    );
-  };
-
-  const save = async () => {
+  const saveForm = async (value: Form) => {
     try {
       await timesheetEntries.upsert({
-        id: form.id,
-        userId: form.userId,
-        date: form.date,
-        hours: Number(form.hours),
-        workplace: form.workplace,
-        comment: form.comment,
+        id: value.id,
+        userId: value.userId,
+        date: value.date,
+        hours: Number(value.hours),
+        workplace: value.workplace,
+        comment: value.comment,
       });
       await timesheetEntries.fetchMonth(month, all ? { all: true } : {});
       toast.success("Запись сохранена");
-      setForm({
-        ...initialForm(),
-        date: month === currentMonth() ? localDate() : `${month}-01`,
-      });
+      return true;
     } catch {
       toast.error("Не удалось сохранить запись");
+      return false;
     }
   };
 
-  const edit = (entry: TimesheetEntry) =>
+  const selectDate = (date: string, entry?: TimesheetEntry) => {
     setForm({
-      id: entry.id,
-      userId: entry.userId,
-      date: entry.date,
-      hours: String(entry.hours),
-      workplace: entry.workplace,
-      comment: entry.comment,
+      ...(entry
+        ? {
+            id: entry.id,
+            userId: entry.userId,
+            date: entry.date,
+            hours: String(entry.hours),
+            workplace: entry.workplace,
+            comment: entry.comment,
+          }
+        : { ...initialForm(), date }),
     });
+    setEditingDate(date);
+  };
+
+  const saveInline = async () => {
+    if (await saveForm(form)) {
+      setEditingDate(undefined);
+    }
+  };
+
+  const openEntryModal = (entry?: TimesheetEntry) => {
+    const initial = entry
+      ? {
+          id: entry.id,
+          userId: entry.userId,
+          date: entry.date,
+          hours: String(entry.hours),
+          workplace: entry.workplace,
+          comment: entry.comment,
+        }
+      : {
+          ...initialForm(),
+          date: month === currentMonth() ? localDate() : `${month}-01`,
+        };
+    dialogs.openModal({
+      title: entry ? "Изменить часы" : "Добавить часы",
+      width: 560,
+      content: (
+        <TimesheetEntryModal
+          initial={initial}
+          workplaces={timesheetEntries.workplaces}
+          onSave={saveForm}
+          onClose={dialogs.closeAllModals}
+        />
+      ),
+    });
+  };
 
   const remove = async (entry: TimesheetEntry) => {
     if (!window.confirm("Удалить запись?")) {
@@ -163,7 +195,7 @@ function Timesheet() {
           <Heading>Табель</Heading>
         </TitleGroup>
         <MonthNavigation month={month} onChange={setMonth} />
-        <Button onClick={startEntry}>Добавить часы</Button>
+        <Button onClick={() => openEntryModal()}>Добавить часы</Button>
       </Topbar>
       {user.isAdmin && (
         <Tabs>
@@ -267,17 +299,28 @@ function Timesheet() {
             ) : !timesheetEntries.isFetching && entries.length === 0 ? (
               <Empty>За этот месяц записей нет</Empty>
             ) : (
-              <TimesheetList entries={entries} onEdit={edit} onDelete={remove} />
+              <TimesheetList entries={entries} onEdit={openEntryModal} onDelete={remove} />
             )}
           </CalendarPanel>
         </AdminLayout>
       ) : (
         <>
-          <EntryForm form={form} workplaces={timesheetEntries.workplaces} setForm={setForm} onSave={save} />
-          <HistoryTitle>История за месяц <span>{total.toFixed(2)} ч</span></HistoryTitle>
-          {!timesheetEntries.isFetching && entries.length === 0 ? <Empty>За этот месяц записей нет</Empty> : (
-            <TimesheetList entries={entries} onEdit={edit} onDelete={remove} />
-          )}
+          <PersonalLedger
+            month={month}
+            entries={entries}
+            total={total}
+            form={form}
+            editingDate={editingDate}
+            workplaces={timesheetEntries.workplaces}
+            onSelect={selectDate}
+            onChange={setForm}
+            onSave={saveInline}
+            onCancel={() => setEditingDate(undefined)}
+            onRemove={async (entry) => {
+              await remove(entry);
+              setEditingDate(undefined);
+            }}
+          />
         </>
       )}
     </Scene>
@@ -294,26 +337,78 @@ function MonthNavigation({ month, onChange }: { month: string; onChange: (month:
   );
 }
 
-function EntryForm({ form, workplaces, setForm, onSave }: { form: Form; workplaces: { id: string; name: string; isDefault: boolean }[]; setForm: React.Dispatch<React.SetStateAction<Form>>; onSave: () => Promise<void> }) {
+type Workplace = { id: string; name: string; isDefault: boolean };
+
+function PersonalLedger({ month, entries, total, form, editingDate, workplaces, onSelect, onChange, onSave, onCancel, onRemove }: {
+  month: string;
+  entries: TimesheetEntry[];
+  total: number;
+  form: Form;
+  editingDate?: string;
+  workplaces: Workplace[];
+  onSelect: (date: string, entry?: TimesheetEntry) => void;
+  onChange: React.Dispatch<React.SetStateAction<Form>>;
+  onSave: () => Promise<void>;
+  onCancel: () => void;
+  onRemove: (entry: TimesheetEntry) => Promise<void>;
+}) {
+  const entriesByDate = new Map(entries.map((entry) => [entry.date, entry]));
+
   return (
-    <EntryCard>
-      <DateInput>
-        <span>{formatDate(form.date)}</span>
-        <input type="date" value={form.date} aria-label="Дата" onChange={(event) => setForm({ ...form, date: event.target.value })} />
-      </DateInput>
-      <HoursInput>
-        <label htmlFor="timesheet-hours">Часы</label>
-        <input id="timesheet-hours" type="number" min="0" max="24" step="0.25" inputMode="decimal" value={form.hours} onChange={(event) => setForm({ ...form, hours: event.target.value })} />
-      </HoursInput>
-      <WorkplaceInput>
-        <label htmlFor="timesheet-workplace">Место</label>
-        <input id="timesheet-workplace" list="timesheet-workplaces" value={form.workplace} placeholder="Комс, Цех или другое" onChange={(event) => setForm({ ...form, workplace: event.target.value })} />
-        <datalist id="timesheet-workplaces">{workplaces.map((item) => <option key={item.id} value={item.name} />)}</datalist>
-      </WorkplaceInput>
-      <CommentInput value={form.comment} placeholder="Комментарий (необязательно)" onChange={(event) => setForm({ ...form, comment: event.target.value })} />
-      <Button onClick={() => void onSave()}>{form.id ? "Сохранить" : "Добавить часы"}</Button>
-    </EntryCard>
+    <PersonalLedgerWrap>
+      <PersonalSummary><span>Всего за {formatMonth(month)}</span><strong>{total.toFixed(2)} ч</strong></PersonalSummary>
+      <LedgerHeader><span>Дата</span><span>Часы</span><span>Место работы</span><span>Заметка</span></LedgerHeader>
+      <Ledger>
+        {monthDates(month).map((date) => {
+          const entry = entriesByDate.get(date);
+          const isEditing = editingDate === date;
+          return isEditing ? (
+            <LedgerEditRow key={date}>
+              <LedgerDate><strong>{formatDate(date)}</strong>{date === localDate() && <small>Сегодня</small>}</LedgerDate>
+              <InlineHours value={form.hours} onChange={(event) => onChange({ ...form, hours: event.target.value })} type="number" min="0" max="24" step="0.25" inputMode="decimal" autoFocus aria-label="Часы" />
+              <WorkplacePicker form={form} workplaces={workplaces} onChange={onChange} inputId={`workplace-${date}`} />
+              <CommentInput value={form.comment} placeholder="Комментарий (необязательно)" onChange={(event) => onChange({ ...form, comment: event.target.value })} />
+              <LedgerActions><Button onClick={() => void onSave()}>Сохранить</Button><Button neutral onClick={onCancel}>Отмена</Button>{entry && <Button icon={<TrashIcon />} neutral aria-label="Удалить" onClick={() => void onRemove(entry)} />}</LedgerActions>
+            </LedgerEditRow>
+          ) : (
+            <LedgerRow key={date} data-today={date === localDate()}>
+              <LedgerDateButton onClick={() => onSelect(date, entry)}><strong>{formatDate(date)}</strong>{date === localDate() && <small>Сегодня</small>}</LedgerDateButton>
+              <LedgerHours onClick={() => onSelect(date, entry)}>{entry ? `${entry.hours} ч` : "—"}</LedgerHours>
+              <LedgerPlace onClick={() => onSelect(date, entry)}>{entry?.workplace ? <WorkplaceTag>{entry.workplace}</WorkplaceTag> : <AddHours>＋ Добавить часы</AddHours>}</LedgerPlace>
+              <LedgerComment onClick={() => onSelect(date, entry)}>{entry?.comment || ""}</LedgerComment>
+            </LedgerRow>
+          );
+        })}
+      </Ledger>
+    </PersonalLedgerWrap>
   );
+}
+
+function TimesheetEntryModal({ initial, workplaces, onSave, onClose }: { initial: Form; workplaces: Workplace[]; onSave: (form: Form) => Promise<boolean>; onClose: () => void }) {
+  const [form, setForm] = React.useState(initial);
+  const save = async () => {
+    if (await onSave(form)) {
+      onClose();
+    }
+  };
+
+  return <ModalForm>
+    <DateInput><span>Дата</span><input type="date" value={form.date} onChange={(event) => setForm({ ...form, date: event.target.value })} /></DateInput>
+    <HoursInput><label htmlFor="timesheet-modal-hours">Часы</label><input id="timesheet-modal-hours" type="number" min="0" max="24" step="0.25" inputMode="decimal" value={form.hours} onChange={(event) => setForm({ ...form, hours: event.target.value })} autoFocus /></HoursInput>
+    <ModalField><span>Место работы</span><WorkplacePicker form={form} workplaces={workplaces} onChange={setForm} inputId="timesheet-modal-workplace" /></ModalField>
+    <ModalField><span>Комментарий <em>(необязательно)</em></span><CommentInput value={form.comment} placeholder="Чем занимались?" onChange={(event) => setForm({ ...form, comment: event.target.value })} /></ModalField>
+    <ModalActions><Button onClick={() => void save()}>{form.id ? "Сохранить" : "Добавить часы"}</Button><Button neutral onClick={onClose}>Отмена</Button></ModalActions>
+  </ModalForm>;
+}
+
+function WorkplacePicker({ form, workplaces, onChange, inputId }: { form: Form; workplaces: Workplace[]; onChange: React.Dispatch<React.SetStateAction<Form>>; inputId: string }) {
+  const defaultPlaces = workplaces.filter((place) => place.isDefault);
+  const isCustom = !!form.workplace && !defaultPlaces.some((place) => place.name === form.workplace);
+  return <WorkplaceChoice>
+    {defaultPlaces.map((place) => <button key={place.id} type="button" data-active={form.workplace === place.name} onClick={() => onChange({ ...form, workplace: place.name })}>{place.name}</button>)}
+    <input id={inputId} list={`${inputId}-options`} value={isCustom ? form.workplace : ""} placeholder="Другое" onChange={(event) => onChange({ ...form, workplace: event.target.value })} />
+    <datalist id={`${inputId}-options`}>{workplaces.filter((place) => !place.isDefault).map((place) => <option key={place.id} value={place.name} />)}</datalist>
+  </WorkplaceChoice>;
 }
 
 function TimesheetCalendar({
@@ -411,6 +506,14 @@ function calendarDays(month: string) {
     date.setDate(start.getDate() + index);
     return toDateString(date);
   });
+}
+
+function monthDates(month: string) {
+  const [year, monthNumber] = month.split("-").map(Number);
+  const days = new Date(year, monthNumber, 0).getDate();
+  return Array.from({ length: days }, (_, index) =>
+    `${month}-${String(index + 1).padStart(2, "0")}`
+  );
 }
 
 function toDateString(date: Date) {
@@ -737,10 +840,6 @@ const Months = styled.nav`
 const MonthCurrent = styled.strong`
   min-width: 175px; text-align: center; font-size: 20px; text-transform: capitalize;
 `;
-const EntryCard = styled.section`
-  display: grid; grid-template-columns: auto minmax(112px, 160px) minmax(150px, 1fr) minmax(160px, 1fr) auto; align-items: end; gap: 12px; padding: 16px; border: 1px solid ${(props) => props.theme.inputBorder}; border-radius: 10px; background: ${(props) => props.theme.backgroundSecondary};
-  @media (max-width: 700px) { grid-template-columns: 1fr 1fr; > :nth-child(3) { grid-column: 1 / -1; } }
-`;
 const DateInput = styled.label`
   display: grid; gap: 3px; font-size: 14px; font-weight: 500; text-transform: capitalize;
   input { width: 126px; border: 0; background: transparent; color: ${(props) => props.theme.textSecondary}; font-size: 12px; }
@@ -749,17 +848,9 @@ const HoursInput = styled.div`
   display: grid; gap: 3px; color: ${(props) => props.theme.textTertiary}; font-size: 12px;
   input { width: 100%; border: 0; border-bottom: 2px solid ${(props) => props.theme.accent}; border-radius: 0; background: transparent; color: ${(props) => props.theme.text}; font-size: 28px; font-weight: 600; line-height: 1.15; outline: none; }
 `;
-const WorkplaceInput = styled.div`
-  display: grid; gap: 3px; color: ${(props) => props.theme.textTertiary}; font-size: 12px;
-  input { width: 100%; border: 0; border-bottom: 1px solid ${(props) => props.theme.inputBorder}; border-radius: 0; background: transparent; color: ${(props) => props.theme.text}; font-size: 13px; outline: none; padding: 8px 0; }
-`;
 const CommentInput = styled.input`
   width: 100%; border: 0; border-bottom: 1px solid ${(props) => props.theme.inputBorder}; background: transparent; color: ${(props) => props.theme.text}; font-size: 13px; outline: none; padding: 8px 0;
   &::placeholder { color: ${(props) => props.theme.textTertiary}; }
-`;
-const HistoryTitle = styled.h2`
-  display: flex; justify-content: space-between; margin: 28px 0 8px; font-size: 14px;
-  span { color: ${(props) => props.theme.textSecondary}; font-weight: 500; }
 `;
 const History = styled.div`border-top: 1px solid ${(props) => props.theme.inputBorder};`;
 const HistoryRow = styled.div`
@@ -770,4 +861,172 @@ const DateCell = styled.span`font-size: 13px; text-transform: capitalize;`;
 const Hours = styled.strong`font-size: 13px;`;
 const Comment = styled.span`overflow: hidden; color: ${(props) => props.theme.textSecondary}; font-size: 13px; text-overflow: ellipsis; white-space: nowrap;`;
 const Actions = styled.span`display: flex; gap: 2px;`;
+
+const PersonalLedgerWrap = styled.section`
+  margin-top: 22px;
+`;
+
+const PersonalSummary = styled.div`
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin: 0 0 14px;
+
+  span { color: ${(props) => props.theme.textSecondary}; font-size: 14px; text-transform: capitalize; }
+  strong { font-size: 28px; letter-spacing: -0.04em; }
+`;
+
+const LedgerHeader = styled.div`
+  display: grid;
+  grid-template-columns: 176px 110px 170px minmax(0, 1fr);
+  gap: 12px;
+  padding: 0 10px 8px;
+  color: ${(props) => props.theme.textTertiary};
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+
+  @media (max-width: 700px) { grid-template-columns: 1fr 58px 96px; > :last-child { display: none; } }
+`;
+
+const Ledger = styled.div`
+  border-top: 1px solid ${(props) => props.theme.inputBorder};
+`;
+
+const LedgerRow = styled.div`
+  display: grid;
+  grid-template-columns: 176px 110px 170px minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  min-height: 48px;
+  border-bottom: 1px solid ${(props) => props.theme.inputBorder};
+
+  &[data-today="true"] { background: ${(props) => props.theme.backgroundSecondary}; }
+  @media (max-width: 700px) { grid-template-columns: 1fr 58px 96px; > :last-child { display: none; } }
+`;
+
+const LedgerEditRow = styled(LedgerRow)`
+  grid-template-columns: 176px 110px minmax(200px, .9fr) minmax(180px, 1fr) auto;
+  min-height: 76px;
+  padding: 10px;
+  border: 1px solid ${(props) => props.theme.accent};
+  border-radius: 8px;
+  background: ${(props) => props.theme.backgroundSecondary};
+
+  @media (max-width: 900px) { grid-template-columns: 1fr 100px minmax(160px, 1fr); > :nth-child(4) { grid-column: 1 / -1; } > :last-child { display: flex; grid-column: 1 / -1; } }
+`;
+
+const LedgerDate = styled.div`
+  display: grid;
+  gap: 2px;
+  padding: 0 10px;
+  text-transform: capitalize;
+  strong { font-size: 13px; }
+  small { color: ${(props) => props.theme.accent}; font-size: 10px; font-weight: 600; }
+`;
+
+const LedgerDateButton = styled.button`
+  display: grid;
+  gap: 2px;
+  align-self: stretch;
+  padding: 0 10px;
+  border: 0;
+  background: transparent;
+  color: ${(props) => props.theme.text};
+  cursor: var(--pointer);
+  text-align: left;
+  text-transform: capitalize;
+  strong { font-size: 13px; }
+  small { color: ${(props) => props.theme.accent}; font-size: 10px; font-weight: 600; }
+`;
+
+const LedgerHours = styled.button`
+  border: 0;
+  background: transparent;
+  color: ${(props) => props.theme.text};
+  cursor: var(--pointer);
+  font-weight: 600;
+  text-align: left;
+`;
+
+const LedgerPlace = styled.button`
+  border: 0;
+  background: transparent;
+  cursor: var(--pointer);
+  text-align: left;
+`;
+
+const LedgerComment = styled.button`
+  overflow: hidden;
+  border: 0;
+  background: transparent;
+  color: ${(props) => props.theme.textSecondary};
+  cursor: var(--pointer);
+  font-size: 13px;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+`;
+
+const WorkplaceTag = styled.span`
+  display: inline-block;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: ${(props) => props.theme.backgroundSecondary};
+  color: ${(props) => props.theme.textSecondary};
+  font-size: 12px;
+`;
+
+const AddHours = styled.span`
+  color: ${(props) => props.theme.accent};
+  font-size: 12px;
+  font-weight: 600;
+`;
+
+const InlineHours = styled.input`
+  width: 100%;
+  border: 1px solid ${(props) => props.theme.inputBorder};
+  border-radius: 6px;
+  background: ${(props) => props.theme.background};
+  color: ${(props) => props.theme.text};
+  font-size: 18px;
+  font-weight: 600;
+  padding: 7px 9px;
+`;
+
+const WorkplaceChoice = styled.div`
+  display: flex;
+  gap: 4px;
+
+  button, input { min-width: 0; border: 1px solid ${(props) => props.theme.inputBorder}; border-radius: 6px; background: ${(props) => props.theme.background}; color: ${(props) => props.theme.textSecondary}; font-size: 12px; padding: 7px 9px; }
+  button { cursor: var(--pointer); }
+  button[data-active="true"] { border-color: ${(props) => props.theme.accent}; color: ${(props) => props.theme.accent}; }
+  input { width: 82px; }
+`;
+
+const LedgerActions = styled.div`
+  display: flex;
+  gap: 6px;
+  > button { white-space: nowrap; }
+`;
+
+const ModalForm = styled.div`
+  display: grid;
+  gap: 18px;
+  min-width: min(100%, 460px);
+`;
+
+const ModalField = styled.label`
+  display: grid;
+  gap: 6px;
+  color: ${(props) => props.theme.textSecondary};
+  font-size: 13px;
+  em { color: ${(props) => props.theme.textTertiary}; font-style: normal; }
+`;
+
+const ModalActions = styled.div`
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+`;
 export default observer(Timesheet);
