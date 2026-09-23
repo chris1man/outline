@@ -29,6 +29,7 @@
 - [x] Add a one-click «Сегодня» control that scrolls to the current date without changing the selected month by hand.
 - [x] Replace ambiguous date strings with a day-of-week, day-number, and month mark.
 - [x] Use non-overlapping mobile cards, a text-labelled «Сегодня» shortcut, and a taller fixed mobile add-hours action.
+- [x] Split the desktop ledger into two visible halves and add a remembered mobile half-month selector per user and month.
 - [x] Use responsive ledger columns for a narrow screen.
 - [ ] Capture and compare the deployed page to the selected reference.
 

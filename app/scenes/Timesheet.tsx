@@ -62,6 +62,16 @@ const dateParts = (date: string) => {
     month: new Intl.DateTimeFormat("ru-RU", { month: "short" }).format(value),
   };
 };
+const defaultMobileHalf = (month: string) =>
+  localDate().startsWith(month) && Number(localDate().slice(-2)) > 15
+    ? "second"
+    : "first";
+const scrollToTimesheetDate = (date: string) =>
+  Array.from(
+    document.querySelectorAll<HTMLElement>(`[data-timesheet-date="${date}"]`)
+  )
+    .find((element) => element.offsetParent)
+    ?.scrollIntoView({ behavior: "smooth", block: "center" });
 
 function Timesheet() {
   const user = useCurrentUser();
@@ -92,9 +102,7 @@ function Timesheet() {
     if (!focusToday) {
       return;
     }
-    document
-      .getElementById(`timesheet-day-${localDate()}`)
-      ?.scrollIntoView({ behavior: "smooth", block: "center" });
+    scrollToTimesheetDate(localDate());
     setFocusToday(false);
   }, [focusToday, month]);
 
@@ -353,6 +361,7 @@ function Timesheet() {
             form={form}
             editingDate={editingDate}
             workplaces={timesheetEntries.workplaces}
+            userId={user.id}
             onSelect={selectDate}
             onChange={setForm}
             onSave={saveInline}
@@ -381,13 +390,14 @@ function MonthNavigation({ month, onChange }: { month: string; onChange: (month:
 
 type Workplace = { id: string; name: string; isDefault: boolean };
 
-function PersonalLedger({ month, entries, total, form, editingDate, workplaces, onSelect, onChange, onSave, onCancel, onAdd, onRemove }: {
+function PersonalLedger({ month, entries, total, form, editingDate, workplaces, userId, onSelect, onChange, onSave, onCancel, onAdd, onRemove }: {
   month: string;
   entries: TimesheetEntry[];
   total: number;
   form: Form;
   editingDate?: string;
   workplaces: Workplace[];
+  userId: string;
   onSelect: (date: string, entry?: TimesheetEntry) => void;
   onChange: React.Dispatch<React.SetStateAction<Form>>;
   onSave: () => Promise<void>;
@@ -397,6 +407,48 @@ function PersonalLedger({ month, entries, total, form, editingDate, workplaces, 
 }) {
   const entriesByDate = new Map(entries.map((entry) => [entry.date, entry]));
   const dates = monthDates(month);
+  const [mobileHalf, setMobileHalf] = React.useState<"first" | "second">(
+    () => defaultMobileHalf(month)
+  );
+  const firstHalf = dates.slice(0, 15);
+  const secondHalf = dates.slice(15);
+
+  React.useEffect(() => {
+    const saved = window.localStorage.getItem(`timesheet-half:${userId}:${month}`);
+    setMobileHalf(saved === "first" || saved === "second" ? saved : defaultMobileHalf(month));
+  }, [month, userId]);
+
+  const chooseHalf = (half: "first" | "second") => {
+    setMobileHalf(half);
+    window.localStorage.setItem(`timesheet-half:${userId}:${month}`, half);
+  };
+
+  const renderRows = (range: string[]) => range.map((date) => {
+    const entry = entriesByDate.get(date);
+    const isEditing = editingDate === date;
+    return isEditing ? (
+      <LedgerEditRow data-timesheet-date={date} key={date}>
+        <LedgerDate><DateMark date={date} />{date === localDate() && <TodayBadge>Сегодня</TodayBadge>}</LedgerDate>
+        <InlineHours value={form.hours} onChange={(event) => onChange({ ...form, hours: event.target.value })} type="number" min="0" max="24" step="0.25" inputMode="decimal" autoFocus aria-label="Часы" />
+        <WorkplaceField><span>Где работали?</span><WorkplacePicker form={form} workplaces={workplaces} onChange={onChange} inputId={`workplace-${date}`} /></WorkplaceField>
+        <CommentInput value={form.comment} placeholder="Комментарий (необязательно)" onChange={(event) => onChange({ ...form, comment: event.target.value })} />
+        <LedgerActions><Button onClick={() => void onSave()}>Сохранить</Button><Button neutral onClick={onCancel}>Отмена</Button>{entry && <Button icon={<TrashIcon />} neutral aria-label="Удалить" onClick={() => void onRemove(entry)} />}</LedgerActions>
+      </LedgerEditRow>
+    ) : (
+      <LedgerRow data-timesheet-date={date} key={date} data-today={date === localDate()}>
+        <LedgerDateButton onClick={() => onSelect(date, entry)}><DateMark date={date} />{date === localDate() && <TodayBadge>Сегодня</TodayBadge>}</LedgerDateButton>
+        <LedgerHours onClick={() => onSelect(date, entry)}>{entry ? <HoursPill>{entry.hours} ч</HoursPill> : "—"}</LedgerHours>
+        <LedgerPlace onClick={() => onSelect(date, entry)}>{entry?.workplace ? <WorkplaceTag>{entry.workplace}</WorkplaceTag> : <AddHours>＋ Добавить часы</AddHours>}</LedgerPlace>
+        <LedgerComment onClick={() => onSelect(date, entry)}>{entry?.comment || ""}</LedgerComment>
+      </LedgerRow>
+    );
+  });
+
+  const panel = (title: string, range: string[]) => <LedgerColumn>
+    <LedgerHalfTitle>{title} <span>{formatMonth(month).split(" ")[0]}</span></LedgerHalfTitle>
+    <LedgerHeader><span>Дата</span><span>Часы</span><span>Место работы</span><span>Заметка</span></LedgerHeader>
+    <Ledger>{renderRows(range)}</Ledger>
+  </LedgerColumn>;
 
   return (
     <PersonalLedgerWrap>
@@ -404,31 +456,11 @@ function PersonalLedger({ month, entries, total, form, editingDate, workplaces, 
         <div><span>Всего за {formatMonth(month)}</span><strong>{total.toFixed(2)} ч</strong></div>
         <SummaryProgress><span>Рабочих дней: {entries.length}</span><div><i style={{ width: `${(entries.length / dates.length) * 100}%` }} /></div></SummaryProgress>
       </PersonalSummary>
-      <LedgerHeader><span>Дата</span><span>Часы</span><span>Место работы</span><span>Заметка</span></LedgerHeader>
-      <Ledger>
-        {dates.map((date) => {
-          const entry = entriesByDate.get(date);
-          const isEditing = editingDate === date;
-          return isEditing ? (
-            <LedgerEditRow id={`timesheet-day-${date}`} key={date}>
-              <LedgerDate><DateMark date={date} />{date === localDate() && <TodayBadge>Сегодня</TodayBadge>}</LedgerDate>
-              <InlineHours value={form.hours} onChange={(event) => onChange({ ...form, hours: event.target.value })} type="number" min="0" max="24" step="0.25" inputMode="decimal" autoFocus aria-label="Часы" />
-              <WorkplaceField><span>Где работали?</span><WorkplacePicker form={form} workplaces={workplaces} onChange={onChange} inputId={`workplace-${date}`} /></WorkplaceField>
-              <CommentInput value={form.comment} placeholder="Комментарий (необязательно)" onChange={(event) => onChange({ ...form, comment: event.target.value })} />
-              <LedgerActions><Button onClick={() => void onSave()}>Сохранить</Button><Button neutral onClick={onCancel}>Отмена</Button>{entry && <Button icon={<TrashIcon />} neutral aria-label="Удалить" onClick={() => void onRemove(entry)} />}</LedgerActions>
-            </LedgerEditRow>
-          ) : (
-            <LedgerRow id={`timesheet-day-${date}`} key={date} data-today={date === localDate()}>
-              <LedgerDateButton onClick={() => onSelect(date, entry)}><DateMark date={date} />{date === localDate() && <TodayBadge>Сегодня</TodayBadge>}</LedgerDateButton>
-              <LedgerHours onClick={() => onSelect(date, entry)}>{entry ? <HoursPill>{entry.hours} ч</HoursPill> : "—"}</LedgerHours>
-              <LedgerPlace onClick={() => onSelect(date, entry)}>{entry?.workplace ? <WorkplaceTag>{entry.workplace}</WorkplaceTag> : <AddHours>＋ Добавить часы</AddHours>}</LedgerPlace>
-              <LedgerComment onClick={() => onSelect(date, entry)}>{entry?.comment || ""}</LedgerComment>
-            </LedgerRow>
-          );
-        })}
-      </Ledger>
+      <MobileHalfSwitch><button data-active={mobileHalf === "first"} onClick={() => chooseHalf("first")}>1–15</button><button data-active={mobileHalf === "second"} onClick={() => chooseHalf("second")}>16–{dates.length}</button></MobileHalfSwitch>
+      <DesktopLedgerColumns>{panel("1–15", firstHalf)}{panel(`16–${dates.length}`, secondHalf)}</DesktopLedgerColumns>
+      <MobileLedger>{panel(mobileHalf === "first" ? "1–15" : `16–${dates.length}`, mobileHalf === "first" ? firstHalf : secondHalf)}</MobileLedger>
       <LedgerFooter><Button neutral icon={<PlusIcon />} onClick={onAdd}>Добавить часы</Button></LedgerFooter>
-      <MobileActions><Button neutral icon={<CalendarIcon />} onClick={() => document.getElementById(`timesheet-day-${localDate()}`)?.scrollIntoView({ behavior: "smooth", block: "center" })}>Сегодня</Button><Button icon={<PlusIcon />} onClick={onAdd}>Добавить часы</Button></MobileActions>
+      <MobileActions><Button neutral icon={<CalendarIcon />} onClick={() => { chooseHalf(defaultMobileHalf(month)); window.requestAnimationFrame(() => scrollToTimesheetDate(localDate())); }}>Сегодня</Button><Button icon={<PlusIcon />} onClick={onAdd}>Добавить часы</Button></MobileActions>
     </PersonalLedgerWrap>
   );
 }
@@ -973,10 +1005,57 @@ const SummaryProgress = styled.div`
   @media (max-width: 700px) { min-width: 108px; text-align: right; }
 `;
 
+const DesktopLedgerColumns = styled.div`
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 22px;
+
+  @media (max-width: 700px) { display: none; }
+`;
+
+const MobileLedger = styled.div`
+  display: none;
+
+  @media (max-width: 700px) { display: block; }
+`;
+
+const LedgerColumn = styled.section`
+  min-width: 0;
+`;
+
+const LedgerHalfTitle = styled.h2`
+  margin: 0;
+  padding: 0 10px 10px;
+  color: ${(props) => props.theme.text};
+  font-size: 16px;
+
+  span { color: ${(props) => props.theme.textTertiary}; font-size: 12px; font-weight: 500; text-transform: capitalize; }
+
+  @media (max-width: 700px) { display: none; }
+`;
+
+const MobileHalfSwitch = styled.nav`
+  display: none;
+
+  @media (max-width: 700px) {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+    margin-bottom: 12px;
+    padding: 4px;
+    border: 1px solid ${(props) => props.theme.inputBorder};
+    border-radius: 9px;
+    background: ${(props) => props.theme.backgroundSecondary};
+
+    button { min-height: 36px; border: 0; border-radius: 6px; background: transparent; color: ${(props) => props.theme.textSecondary}; cursor: var(--pointer); font-size: 13px; font-weight: 600; }
+    button[data-active="true"] { background: ${(props) => props.theme.background}; box-shadow: 0 1px 3px rgba(0, 0, 0, .08); color: ${(props) => props.theme.text}; }
+  }
+`;
+
 const LedgerHeader = styled.div`
   display: grid;
-  grid-template-columns: 210px 140px 200px minmax(0, 1fr);
-  gap: 12px;
+  grid-template-columns: 126px 82px 116px minmax(0, 1fr);
+  gap: 8px;
   position: sticky;
   z-index: 1;
   top: 0;
@@ -999,7 +1078,7 @@ const Ledger = styled.div`
 
 const LedgerRow = styled.div`
   display: grid;
-  grid-template-columns: 210px 140px 200px minmax(0, 1fr);
+  grid-template-columns: 126px 82px 116px minmax(0, 1fr);
   align-items: center;
   gap: 12px;
   min-height: 64px;
@@ -1023,13 +1102,14 @@ const LedgerRow = styled.div`
 `;
 
 const LedgerEditRow = styled(LedgerRow)`
-  grid-template-columns: 210px 140px minmax(285px, 1.1fr) minmax(180px, 1fr) auto;
+  grid-template-columns: 126px 82px minmax(180px, 1fr);
   min-height: 94px;
   padding: 14px 10px;
   border: 1px solid ${(props) => props.theme.accent};
   border-radius: 8px;
   background: ${(props) => props.theme.backgroundSecondary};
 
+  > :nth-child(4), > :last-child { grid-column: 1 / -1; }
   @media (max-width: 900px) { grid-template-columns: 1fr 100px minmax(160px, 1fr); > :nth-child(4) { grid-column: 1 / -1; } > :last-child { display: flex; grid-column: 1 / -1; } }
   @media (max-width: 700px) { display: grid; grid-template-columns: 1fr 86px; gap: 12px; padding: 14px; > :nth-child(1), > :nth-child(2) { grid-column: auto; grid-row: auto; } > :nth-child(3), > :nth-child(4), > :last-child { grid-column: 1 / -1; } }
 `;
